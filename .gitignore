@@ -1,0 +1,26 @@
+# Секреты и локальная конфигурация
+.env
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+
+# Данные приложения (локальные)
+reports/
+web/backend/data/clients.db
+
+# Node / frontend
+web/frontend/node_modules/
+web/frontend/dist/
+
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.log
+web/backend/.gstack/

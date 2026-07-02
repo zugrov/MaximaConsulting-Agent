@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "email": "admin@maximaconsult.ru",
+    "name": "Максим Зугров",
+    "role": "admin",
+    "password_hash": "$2b$12$iZ7.nDP1L32gcQfVXZzcBOpMTxrrMjh.5NkNUgqME0.6f77QEAHt6"
+  },
+  {
+    "id": 2,
+    "email": "analyst@maximaconsult.ru",
+    "name": "Аналитик",
+    "role": "analyst",
+    "password_hash": "$2b$12$Rn9KAfRwM4AVvaBkmpeINO8H5jF07LfeQRmGQDrMAQH7r8OItQJMS"
+  }
+]
