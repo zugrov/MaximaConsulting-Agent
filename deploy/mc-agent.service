@@ -1,0 +1,17 @@
+[Unit]
+Description=Maxima Consulting AI Agent (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mc-agent/web/backend
+Environment=PYTHONPATH=/var/www/mc-agent/web/backend
+EnvironmentFile=/var/www/mc-agent/.env
+ExecStart=/var/www/mc-agent/venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

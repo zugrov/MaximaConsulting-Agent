@@ -20,7 +20,16 @@ export async function login(email, password) {
   const r = await fetch(`${API}/login`, { method: 'POST', body: form })
   if (!r.ok) {
     const err = await r.json().catch(() => ({}))
-    throw new Error(err.detail || 'Ошибка авторизации')
+    if (r.status === 404) {
+      throw new Error('Бэкенд недоступен. Запустите: cd web && bash start.sh')
+    }
+    const detail = err.detail
+    const msg = typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+        ? detail[0]?.msg
+        : null
+    throw new Error(msg || 'Ошибка авторизации')
   }
   const { access_token } = await r.json()
 

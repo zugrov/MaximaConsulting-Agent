@@ -9,9 +9,9 @@ echo "Root: $ROOT"
 
 # Backend
 echo ""
-echo "=== Запуск бэкенда (FastAPI) на http://localhost:8000 ==="
+echo "=== Запуск бэкенда (FastAPI) на http://localhost:8001 ==="
 cd "$ROOT/web/backend"
-PYTHONPATH="$ROOT/web/backend" python3 -m uvicorn main:app --reload --port 8000 &
+PYTHONPATH="$ROOT/web/backend" python3 -m uvicorn main:app --reload --port 8001 &
 BACKEND_PID=$!
 echo "Backend PID: $BACKEND_PID"
 
