@@ -1,20 +1,28 @@
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from pathlib import Path
 
-import anthropic
+import httpx
 
 ROOT_DIR = Path(__file__).resolve().parents[3]  # consulting-agent/
 SKILLS_DIR = ROOT_DIR / "skills"
 
-MODEL = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-6")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))
 CONSULTANT_NAME = os.getenv("CONSULTANT_NAME", "Максим Зугров")
 CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+79106407686")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
+
+# llm-router — общий сервис маршрутизации LLM для нескольких MVP
+# (см. https://github.com/zugrov/llm-router). Модель для task_type=client_report
+# выбирает сам llm-router, здесь она не задаётся.
+# consulting-agent — systemd-процесс на хосте VPS (не в Docker), поэтому обращается
+# к llm-router через опубликованный на localhost порт, а не по имени контейнера.
+LLM_ROUTER_URL = os.getenv("LLM_ROUTER_URL", "http://127.0.0.1:8020")
+LLM_ROUTER_INTERNAL_SECRET = os.getenv("LLM_ROUTER_INTERNAL_SECRET", "")
 
 SERVICES: dict[str, tuple[str, str]] = {
     "1": ("diagnostic", "Финансовая диагностика"),
@@ -85,10 +93,9 @@ async def stream_analysis(
     service_name: str,
     context: str = "",
 ) -> AsyncGenerator[str, None]:
-    """Генерирует SSE-токены от Anthropic API."""
-    api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        yield "data: [ОШИБКА: ANTHROPIC_API_KEY не задан в .env]\n\n"
+    """Генерирует SSE-токены через llm-router (task_type=client_report)."""
+    if not LLM_ROUTER_INTERNAL_SECRET:
+        yield "data: [ОШИБКА: LLM_ROUTER_INTERNAL_SECRET не задан в .env]\n\n"
         return
 
     system_prompt = build_system_prompt(skill_name, service_name)
@@ -103,19 +110,40 @@ async def stream_analysis(
 {f"Дополнительный контекст: {context}" if context else ""}
 В начале укажи дату, услугу и имя консультанта."""
 
-    client = anthropic.AsyncAnthropic(api_key=api_key)
     try:
-        async with client.messages.stream(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
-        ) as stream:
-            async for text in stream.text_stream:
-                escaped = text.replace("\n", "\\n")
-                yield f"data: {escaped}\n\n"
+        async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=10.0)) as client:
+            async with client.stream(
+                "POST",
+                f"{LLM_ROUTER_URL}/v1/complete/stream",
+                headers={"X-Internal-Secret": LLM_ROUTER_INTERNAL_SECRET},
+                json={
+                    "project": "maxima-consulting",
+                    "task_type": "client_report",
+                    "system": system_prompt,
+                    "prompt": user_message,
+                    "max_tokens": MAX_TOKENS,
+                },
+            ) as response:
+                if response.status_code != 200:
+                    yield f"data: [ОШИБКА: llm-router вернул HTTP {response.status_code}]\n\n"
+                    return
+                async for line in response.aiter_lines():
+                    trimmed = line.strip()
+                    if not trimmed.startswith("data: "):
+                        continue
+                    try:
+                        event = json.loads(trimmed[len("data: "):])
+                    except ValueError:
+                        continue  # skip malformed SSE chunk
+                    if event.get("error"):
+                        yield f"data: [ОШИБКА: {event.get('error_code', 'STREAM_INTERRUPTED')}]\n\n"
+                        return
+                    if event.get("done"):
+                        break
+                    delta = event.get("delta")
+                    if delta:
+                        escaped = delta.replace("\n", "\\n")
+                        yield f"data: {escaped}\n\n"
         yield "data: [DONE]\n\n"
-    except anthropic.AuthenticationError:
-        yield "data: [ОШИБКА: Неверный ANTHROPIC_API_KEY]\n\n"
-    except Exception as e:
-        yield f"data: [ОШИБКА: {str(e)[:200]}]\n\n"
+    except httpx.HTTPError as e:
+        yield f"data: [ОШИБКА: llm-router недоступен ({str(e)[:150]})]\n\n"
