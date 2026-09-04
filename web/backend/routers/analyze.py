@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from routers.auth import get_current_user
 from services.ai import SERVICES, get_services, stream_analysis
-from services.parser import parse_file
+from services.parser import parse_file, truncate_combined
 
 router = APIRouter()
 
@@ -45,24 +45,30 @@ async def analyze(
     skill_name, service_name = SERVICES[service_code]
 
     parts: list[str] = []
+    any_truncated = False
     for f in files:
         content = await f.read()
         if not content:
             continue
         parsed = parse_file(content, f.filename or "file")
+        if parsed["truncated"]:
+            any_truncated = True
         parts.append(f"=== {parsed['source_file']} ===\n{parsed['raw']}")
 
     if not parts:
         raise HTTPException(status_code=422, detail="Все переданные файлы пусты")
 
     combined_raw = "\n\n".join(parts)
+    combined_raw, combined_truncated = truncate_combined(combined_raw)
+    if combined_truncated:
+        any_truncated = True
     source_label = ", ".join(f.filename or "file" for f in files)
 
     return StreamingResponse(
         stream_analysis(
             raw_content=combined_raw,
             source_file=source_label,
-            truncated=False,
+            truncated=any_truncated,
             skill_name=skill_name,
             service_name=service_name,
             context=context,

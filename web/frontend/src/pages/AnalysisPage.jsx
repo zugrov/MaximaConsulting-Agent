@@ -137,6 +137,7 @@ export default function AnalysisPage() {
           if (!line.startsWith('data: ')) continue
           const chunk = line.slice(6)
           if (chunk === '[DONE]') { setStreaming(false); sseFinished = true; break }
+          if (chunk === '[STARTED]') continue
           if (chunk.startsWith('[ОШИБКА')) { setError(chunk); setStreaming(false); sseFinished = true; break }
           setResult((prev) => prev + chunk.replace(/\\n/g, '\n'))
         }

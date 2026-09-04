@@ -6,7 +6,15 @@ from typing import Any
 
 import pandas as pd
 
-MAX_CHARS = 100_000  # лимит перед отправкой в LLM
+MAX_CHARS = 100_000  # лимит на один файл при парсинге
+LLM_MAX_COMBINED_CHARS = 50_000  # лимит суммарного промпта для LLM (несколько файлов)
+
+
+def truncate_combined(text: str) -> tuple[str, bool]:
+    """Обрезает суммарный текст из нескольких файлов перед отправкой в LLM."""
+    if len(text) <= LLM_MAX_COMBINED_CHARS:
+        return text, False
+    return text[:LLM_MAX_COMBINED_CHARS], True
 
 
 def _truncate(text: str) -> tuple[str, bool]:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -13,7 +13,7 @@ SKILLS_DIR = ROOT_DIR / "skills"
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))
 CONSULTANT_NAME = os.getenv("CONSULTANT_NAME", "Максим Зугров")
-CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+79106407686")
+CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+7908488480")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
 
 # llm-router — общий сервис маршрутизации LLM для нескольких MVP
@@ -23,6 +23,7 @@ COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
 # к llm-router через опубликованный на localhost порт, а не по имени контейнера.
 LLM_ROUTER_URL = os.getenv("LLM_ROUTER_URL", "http://127.0.0.1:8020")
 LLM_ROUTER_INTERNAL_SECRET = os.getenv("LLM_ROUTER_INTERNAL_SECRET", "")
+KEEPALIVE_INTERVAL_SEC = 15.0
 
 SERVICES: dict[str, tuple[str, str]] = {
     "1": ("diagnostic", "Финансовая диагностика"),
@@ -85,6 +86,32 @@ def build_system_prompt(skill_name: str, service_name: str) -> str:
 """
 
 
+async def _request_llm_router(system_prompt: str, user_message: str) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=10.0)) as client:
+        return await client.post(
+            f"{LLM_ROUTER_URL}/v1/complete",
+            headers={"X-Internal-Secret": LLM_ROUTER_INTERNAL_SECRET},
+            json={
+                "project": "maxima-consulting",
+                "task_type": "client_report",
+                "system": system_prompt,
+                "prompt": user_message,
+                "max_tokens": MAX_TOKENS,
+            },
+        )
+
+
+def _yield_content_chunks(content: str) -> list[str]:
+    events: list[str] = []
+    chunk_size = 400
+    for i in range(0, len(content), chunk_size):
+        piece = content[i : i + chunk_size]
+        escaped = piece.replace("\n", "\\n")
+        events.append(f"data: {escaped}\n\n")
+    events.append("data: [DONE]\n\n")
+    return events
+
+
 async def stream_analysis(
     raw_content: str,
     source_file: str,
@@ -99,7 +126,7 @@ async def stream_analysis(
         return
 
     system_prompt = build_system_prompt(skill_name, service_name)
-    truncation_note = "\n\n⚠️ *Документ обрезан до 100 000 символов*" if truncated else ""
+    truncation_note = "\n\n⚠️ *Данные обрезаны для анализа (лимит 50 000 символов)*" if truncated else ""
     user_message = f"""## ДАННЫЕ КЛИЕНТА
 Источник: {source_file}{truncation_note}
 
@@ -111,39 +138,42 @@ async def stream_analysis(
 В начале укажи дату, услугу и имя консультанта."""
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=10.0)) as client:
-            async with client.stream(
-                "POST",
-                f"{LLM_ROUTER_URL}/v1/complete/stream",
-                headers={"X-Internal-Secret": LLM_ROUTER_INTERNAL_SECRET},
-                json={
-                    "project": "maxima-consulting",
-                    "task_type": "client_report",
-                    "system": system_prompt,
-                    "prompt": user_message,
-                    "max_tokens": MAX_TOKENS,
-                },
-            ) as response:
-                if response.status_code != 200:
-                    yield f"data: [ОШИБКА: llm-router вернул HTTP {response.status_code}]\n\n"
-                    return
-                async for line in response.aiter_lines():
-                    trimmed = line.strip()
-                    if not trimmed.startswith("data: "):
-                        continue
-                    try:
-                        event = json.loads(trimmed[len("data: "):])
-                    except ValueError:
-                        continue  # skip malformed SSE chunk
-                    if event.get("error"):
-                        yield f"data: [ОШИБКА: {event.get('error_code', 'STREAM_INTERRUPTED')}]\n\n"
-                        return
-                    if event.get("done"):
-                        break
-                    delta = event.get("delta")
-                    if delta:
-                        escaped = delta.replace("\n", "\\n")
-                        yield f"data: {escaped}\n\n"
-        yield "data: [DONE]\n\n"
+        # Сразу отдаём байты клиенту — иначе браузер/proxy рвут соединение при ожидании LLM.
+        yield "data: [STARTED]\n\n"
+
+        llm_task = asyncio.create_task(_request_llm_router(system_prompt, user_message))
+        while not llm_task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(llm_task), timeout=KEEPALIVE_INTERVAL_SEC)
+            except asyncio.TimeoutError:
+                yield ": keepalive\n\n"
+
+        response = llm_task.result()
+
+        if response.status_code != 200:
+            try:
+                detail = response.json().get("detail", {})
+                error_code = detail.get("error_code", f"HTTP_{response.status_code}")
+            except ValueError:
+                error_code = f"HTTP_{response.status_code}"
+            if error_code == "MODEL_UNAVAILABLE":
+                msg = (
+                    "llm-router — модели временно недоступны "
+                    "(слишком большой объём данных или сбой RouterAI). "
+                    "Попробуйте меньше файлов или повторите через минуту"
+                )
+            else:
+                msg = f"llm-router — {error_code}"
+            yield f"data: [ОШИБКА: {msg}]\n\n"
+            return
+
+        data = response.json()
+        content = (data.get("content") or "").strip()
+        if not content:
+            yield "data: [ОШИБКА: llm-router вернул пустой ответ]\n\n"
+            return
+
+        for event in _yield_content_chunks(content):
+            yield event
     except httpx.HTTPError as e:
         yield f"data: [ОШИБКА: llm-router недоступен ({str(e)[:150]})]\n\n"

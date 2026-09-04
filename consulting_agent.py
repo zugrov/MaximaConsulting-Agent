@@ -39,7 +39,7 @@ MODEL = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-6")
 FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "claude-haiku-4-5-20251001")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))
 CONSULTANT_NAME = os.getenv("CONSULTANT_NAME", "Максим Евгеньевич Зугров")
-CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+79106407686")
+CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+7908488480")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
 BRAND_NAME = "maxima consulting"
 
