@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+# .env лежит в корне consulting-agent/ — загружать ДО импорта routers/services,
+# иначе os.getenv в ai.py прочитает пустые значения при import-time.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,9 +16,6 @@ from routers import auth, analyze, reports
 from routers.clients import router as clients_router
 from routers.cloud import router as cloud_router
 from services.clients_db import init_db
-
-# .env лежит в корне consulting-agent/
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 app = FastAPI(title="maxima consulting AI Agent", version="1.0.0")
 
