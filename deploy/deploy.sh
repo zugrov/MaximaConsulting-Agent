@@ -5,10 +5,15 @@
 set -e
 
 APP_DIR="/var/www/mc-agent"
+DEPLOY_USER="${DEPLOY_USER:-www-data}"
+
 cd "$APP_DIR"
 
 echo "=== git pull ==="
-git pull origin main
+# Git 2.35+ блокирует pull в «чужом» каталоге (dubious ownership), если скрипт
+# запущен от root, а репозиторий принадлежит www-data.
+git config --global --add safe.directory "$APP_DIR"
+sudo -u "$DEPLOY_USER" git -C "$APP_DIR" pull origin main
 
 echo "=== Python-зависимости ==="
 source venv/bin/activate

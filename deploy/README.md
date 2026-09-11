@@ -34,6 +34,22 @@ sudo certbot --nginx -d agent.maxima-consulting.ru
 sudo bash /var/www/mc-agent/deploy/deploy.sh
 ```
 
+Скрипт выполняет `git pull` от пользователя `www-data` (переопределить: `DEPLOY_USER=...`).
+При первом запуске после bundle-деплоя добавляет `/var/www/mc-agent` в `safe.directory`.
+
+### Если `git pull` не работает (нет доступа к GitHub с VPS)
+
+```bash
+# На Mac — создать bundle и отправить на VPS
+cd MaximaConsulting-Agent
+git bundle create /tmp/mc-agent.bundle main
+scp /tmp/mc-agent.bundle root@62.217.176.186:/tmp/
+
+# На VPS
+sudo -u www-data git -C /var/www/mc-agent pull /tmp/mc-agent.bundle main
+sudo bash /var/www/mc-agent/deploy/deploy.sh
+```
+
 ## Переменные .env (production)
 
 | Переменная | Описание |
