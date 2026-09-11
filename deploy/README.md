@@ -21,7 +21,7 @@ cd /var/www
 git clone https://github.com/zugrov/MaximaConsulting-Agent.git mc-agent
 cd mc-agent
 sudo bash deploy/setup-first-time.sh
-sudo nano .env   # ANTHROPIC_API_KEY, JWT_SECRET, GOOGLE_DRIVE_API_KEY
+sudo nano .env   # LLM_ROUTER_INTERNAL_SECRET, JWT_SECRET, GOOGLE_DRIVE_API_KEY
 sudo systemctl restart mc-agent
 
 # SSL
@@ -38,10 +38,15 @@ sudo bash /var/www/mc-agent/deploy/deploy.sh
 
 | Переменная | Описание |
 |---|---|
-| `ANTHROPIC_API_KEY` | Ключ Anthropic API |
+| `LLM_ROUTER_URL` | Адрес llm-router (на VPS: `http://127.0.0.1:8020`) |
+| `LLM_ROUTER_INTERNAL_SECRET` | Секрет, совпадающий с `INTERNAL_SECRET` в llm-router |
+| `LLM_ROUTER_PROJECT` | `maxima-consulting` |
+| `LLM_ROUTER_TASK_TYPE` | `client_report` |
 | `JWT_SECRET` | Секрет для JWT (сгенерировать: `python3 -c "import secrets; print(secrets.token_hex(32))"`) |
 | `GOOGLE_DRIVE_API_KEY` | Google Drive API (для загрузки папок) |
-| `ALLOWED_ORIGINS` | Опционально: `https://agent.maxima-consulting.ru` |
+| `ALLOWED_ORIGINS` | `https://agent.maxima-consulting.ru` |
+
+На VPS должен быть запущен **llm-router** на `127.0.0.1:8020`. CLI и веб обращаются к нему, а не к провайдерам LLM напрямую.
 
 ## Полезные команды
 
@@ -52,6 +57,6 @@ curl http://127.0.0.1:8001/api/health
 nginx -t
 ```
 
-## API из РФ
+## LLM
 
-При блокировке Anthropic API рассмотрите OpenRouter как шлюз (настройка в `.env`).
+Модель и fallback настраиваются в **llm-router**, не в mc-agent.

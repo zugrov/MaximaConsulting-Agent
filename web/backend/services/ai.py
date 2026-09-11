@@ -13,7 +13,7 @@ SKILLS_DIR = ROOT_DIR / "skills"
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))
 CONSULTANT_NAME = os.getenv("CONSULTANT_NAME", "Максим Зугров")
-CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+7908488480")
+CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+79808488480")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
 
 # llm-router — общий сервис маршрутизации LLM для нескольких MVP

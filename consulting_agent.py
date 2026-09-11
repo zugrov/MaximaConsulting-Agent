@@ -14,7 +14,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import anthropic
 import pandas as pd
 import typer
 from dotenv import load_dotenv
@@ -26,6 +25,8 @@ from rich.table import Table
 
 load_dotenv()
 
+from utils.llm_router_client import LLM_ROUTER_INTERNAL_SECRET, call_llm_router
+
 app = typer.Typer(help="CLI агент финансового консалтинга")
 console = Console()
 
@@ -34,12 +35,9 @@ SKILLS_DIR = ROOT_DIR / "skills"
 REPORTS_DIR = ROOT_DIR / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-MODEL = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-6")
-FALLBACK_MODEL = os.getenv("FALLBACK_MODEL", "claude-haiku-4-5-20251001")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))
 CONSULTANT_NAME = os.getenv("CONSULTANT_NAME", "Максим Евгеньевич Зугров")
-CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+7908488480")
+CONSULTANT_PHONE = os.getenv("CONSULTANT_PHONE", "+79808488480")
 COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
 BRAND_NAME = "maxima consulting"
 
@@ -154,28 +152,6 @@ def build_system_prompt(skill_name: str, service_name: str) -> str:
 """
 
 
-def call_model(client: anthropic.Anthropic, system_prompt: str, user_message: str) -> str:
-    models = [MODEL]
-    if FALLBACK_MODEL and FALLBACK_MODEL != MODEL:
-        models.append(FALLBACK_MODEL)
-
-    last_error: Exception | None = None
-    for model_name in models:
-        try:
-            response = client.messages.create(
-                model=model_name,
-                max_tokens=MAX_TOKENS,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-            )
-            return response.content[0].text
-        except Exception as err:  # pragma: no cover
-            last_error = err
-            console.print(f"[yellow]Не удалось вызвать модель {model_name}: {err}[/yellow]")
-
-    raise RuntimeError(f"Все модели недоступны: {last_error}") from last_error
-
-
 def run_analysis(client_data: dict[str, Any], skill_name: str, service_name: str, context: str) -> str:
     if not client_data.get("raw", "").strip():
         raise ValueError("В файле нет данных для анализа.")
@@ -191,9 +167,9 @@ def run_analysis(client_data: dict[str, Any], skill_name: str, service_name: str
 {f"Дополнительный контекст: {context}" if context else ""}
 В начале укажи дату, услугу и имя консультанта.
 """
-    model_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     with console.status("[bold green]Анализирую данные клиента...[/bold green]"):
-        return call_model(model_client, system_prompt, user_message)
+        result = call_llm_router(system_prompt, user_message, MAX_TOKENS)
+        return result.content
 
 
 def save_report(report_text: str, client_name: str, service_name: str) -> Path:
@@ -235,8 +211,8 @@ def analyze(
     interactive: bool = typer.Option(True, "--interactive/--no-interactive", help="Интерактивный режим"),
 ) -> None:
     """Запуск анализа клиента по выбранной методологии."""
-    if not ANTHROPIC_API_KEY:
-        console.print("[red]ANTHROPIC_API_KEY не задан в .env[/red]")
+    if not LLM_ROUTER_INTERNAL_SECRET:
+        console.print("[red]LLM_ROUTER_INTERNAL_SECRET не задан в .env[/red]")
         raise typer.Exit(code=1)
 
     if not client_file:

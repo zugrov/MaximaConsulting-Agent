@@ -26,7 +26,7 @@ if [ ! -f .env ]; then
   cp .env.example .env
   echo "⚠️  Создан .env из .env.example — заполните секреты:"
   echo "    nano $APP_DIR/.env"
-  echo "    Обязательно: ANTHROPIC_API_KEY, JWT_SECRET"
+  echo "    Обязательно: LLM_ROUTER_INTERNAL_SECRET, JWT_SECRET"
 fi
 
 echo "=== 4. Данные и права ==="
