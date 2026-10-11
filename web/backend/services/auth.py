@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -36,6 +37,9 @@ MAX_PASSWORD_BYTES = 72  # ограничение bcrypt
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 часов
 
 USERS_FILE = Path(__file__).resolve().parents[1] / "data" / "users.json"
+# Запросы выполняются в потоках одного процесса uvicorn: блокировка не даёт
+# параллельным «прочитать-изменить-записать» затереть изменения друг друга
+_users_lock = threading.Lock()
 
 
 def _load_users() -> list[dict]:
@@ -45,8 +49,11 @@ def _load_users() -> list[dict]:
 
 
 def _save_users(users: list[dict]) -> None:
+    """Атомарная запись: сбой посреди записи не оставит битый users.json."""
     USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USERS_FILE.write_text(json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp_path = USERS_FILE.with_name(f"{USERS_FILE.name}.{threading.get_ident()}.tmp")
+    tmp_path.write_text(json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp_path, USERS_FILE)
 
 
 def get_user_by_email(email: str) -> Optional[dict]:
@@ -86,44 +93,49 @@ def list_users() -> list[dict]:
 
 
 def create_user(email: str, name: str, password: str, role: str) -> dict:
-    users = _load_users()
-    new_id = max((u["id"] for u in users), default=0) + 1
-    user = {
-        "id": new_id,
-        "email": email,
-        "name": name,
-        "role": role,
-        "password_hash": hash_password(password),
-    }
-    users.append(user)
-    _save_users(users)
+    password_hash = hash_password(password)  # медленный bcrypt — вне блокировки
+    with _users_lock:
+        users = _load_users()
+        new_id = max((u["id"] for u in users), default=0) + 1
+        users.append({
+            "id": new_id,
+            "email": email,
+            "name": name,
+            "role": role,
+            "password_hash": password_hash,
+        })
+        _save_users(users)
     return {"id": new_id, "email": email, "name": name, "role": role}
 
 
 def update_user_role(user_id: int, role: str) -> bool:
-    users = _load_users()
-    for u in users:
-        if u["id"] == user_id:
-            u["role"] = role
-            _save_users(users)
-            return True
+    with _users_lock:
+        users = _load_users()
+        for u in users:
+            if u["id"] == user_id:
+                u["role"] = role
+                _save_users(users)
+                return True
     return False
 
 
 def set_user_password(user_id: int, new_password: str) -> bool:
-    users = _load_users()
-    for u in users:
-        if u["id"] == user_id:
-            u["password_hash"] = hash_password(new_password)
-            _save_users(users)
-            return True
+    password_hash = hash_password(new_password)
+    with _users_lock:
+        users = _load_users()
+        for u in users:
+            if u["id"] == user_id:
+                u["password_hash"] = password_hash
+                _save_users(users)
+                return True
     return False
 
 
 def delete_user(user_id: int) -> bool:
-    users = _load_users()
-    new_users = [u for u in users if u["id"] != user_id]
-    if len(new_users) == len(users):
-        return False
-    _save_users(new_users)
+    with _users_lock:
+        users = _load_users()
+        new_users = [u for u in users if u["id"] != user_id]
+        if len(new_users) == len(users):
+            return False
+        _save_users(new_users)
     return True
