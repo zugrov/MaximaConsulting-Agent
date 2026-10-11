@@ -23,6 +23,7 @@ COMPANY_NAME = os.getenv("COMPANY_NAME", "Максима Консалтинг")
 # к llm-router через опубликованный на localhost порт, а не по имени контейнера.
 LLM_ROUTER_URL = os.getenv("LLM_ROUTER_URL", "http://127.0.0.1:8020")
 LLM_ROUTER_INTERNAL_SECRET = os.getenv("LLM_ROUTER_INTERNAL_SECRET", "")
+LLM_ROUTER_PROJECT = os.getenv("LLM_ROUTER_PROJECT", "maxima-consulting")
 KEEPALIVE_INTERVAL_SEC = 15.0
 
 SERVICES: dict[str, tuple[str, str]] = {
@@ -92,7 +93,7 @@ async def _request_llm_router(system_prompt: str, user_message: str) -> httpx.Re
             f"{LLM_ROUTER_URL}/v1/complete",
             headers={"X-Internal-Secret": LLM_ROUTER_INTERNAL_SECRET},
             json={
-                "project": "maxima-consulting",
+                "project": LLM_ROUTER_PROJECT,
                 "task_type": "client_report",
                 "system": system_prompt,
                 "prompt": user_message,

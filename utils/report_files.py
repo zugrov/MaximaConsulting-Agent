@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +10,15 @@ from pathlib import Path
 CLIENT_MAX_LEN = 30
 SERVICE_MAX_LEN = 24
 MAX_ATTEMPTS = 1000
+
+
+def resolve_reports_dir(root_dir: Path) -> Path:
+    """Каталог отчётов: REPORTS_DIR из окружения (относительный — от корня проекта)."""
+    raw = os.getenv("REPORTS_DIR")
+    if not raw:
+        return root_dir / "reports"
+    path = Path(raw)
+    return path if path.is_absolute() else root_dir / path
 
 
 def safe_slug(value: str, max_len: int = 40) -> str:

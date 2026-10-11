@@ -10,11 +10,11 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from routers.auth import get_current_user
-from utils.report_files import save_report_file
+from utils.report_files import resolve_reports_dir, save_report_file
 
 router = APIRouter()
 
-REPORTS_DIR = Path(__file__).resolve().parents[3] / "reports"
+REPORTS_DIR = resolve_reports_dir(Path(__file__).resolve().parents[3])
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 

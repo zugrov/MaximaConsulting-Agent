@@ -25,7 +25,7 @@ from rich.table import Table
 load_dotenv()
 
 from utils.llm_router_client import LLM_ROUTER_INTERNAL_SECRET, call_llm_router
-from utils.report_files import save_report_file
+from utils.report_files import resolve_reports_dir, save_report_file
 
 app = typer.Typer(help="CLI агент финансового консалтинга")
 console = Console()
@@ -34,15 +34,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 SKILLS_DIR = ROOT_DIR / "skills"
 
 
-def _resolve_reports_dir() -> Path:
-    raw = os.getenv("REPORTS_DIR")
-    if not raw:
-        return ROOT_DIR / "reports"
-    path = Path(raw)
-    return path if path.is_absolute() else ROOT_DIR / path
-
-
-REPORTS_DIR = _resolve_reports_dir()
+REPORTS_DIR = resolve_reports_dir(ROOT_DIR)
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))
