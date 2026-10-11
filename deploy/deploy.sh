@@ -10,11 +10,10 @@ DEPLOY_USER="${DEPLOY_USER:-www-data}"
 cd "$APP_DIR"
 
 echo "=== git pull ==="
-# Git 2.35+ блокирует pull в «чужом» каталоге (dubious ownership), если скрипт
-# запущен от root, а репозиторий принадлежит www-data.
-# -c не пишет в ~/.gitconfig: у www-data нет права на /var/www/.gitconfig,
-# а каталог репозитория принадлежит другому пользователю
-sudo -u "$DEPLOY_USER" git -c safe.directory="$APP_DIR" -C "$APP_DIR" pull origin main
+# Каталог на VPS принадлежит не www-data, поэтому fetch от www-data
+# не может записать .git. Скрипт запускается от root.
+# -c safe.directory не пишет в gitconfig и снимает блокировку dubious ownership.
+git -c safe.directory="$APP_DIR" -C "$APP_DIR" pull origin main
 
 echo "=== Python-зависимости ==="
 source venv/bin/activate
@@ -30,7 +29,7 @@ cd "$APP_DIR"
 
 echo "=== Права на данные ==="
 mkdir -p reports web/backend/data
-chown -R www-data:www-data reports web/backend/data
+chown -R "$DEPLOY_USER:$DEPLOY_USER" reports web/backend/data
 chmod -R 755 reports web/backend/data
 
 echo "=== Перезапуск сервиса ==="
