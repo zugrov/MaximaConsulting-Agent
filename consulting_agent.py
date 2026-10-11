@@ -174,7 +174,8 @@ def run_analysis(client_data: dict[str, Any], skill_name: str, service_name: str
 
 def save_report(report_text: str, client_name: str, service_name: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{safe_slug(client_name, 30)}_{safe_slug(service_name, 24)}.md"
+    # "--" — разделитель для web/backend/routers/reports.py (_parse_meta)
+    filename = f"{timestamp}_{safe_slug(client_name, 30)}--{safe_slug(service_name, 24)}.md"
     report_path = REPORTS_DIR / filename
     report_path.write_text(report_text, encoding="utf-8")
     return report_path
