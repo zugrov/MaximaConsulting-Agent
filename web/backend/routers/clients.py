@@ -15,6 +15,7 @@ from services.clients_db import (
     list_clients,
     update_client,
 )
+from utils.report_files import client_key
 
 router = APIRouter()
 
@@ -105,7 +106,10 @@ def client_reports(
     if not client:
         raise HTTPException(status_code=404, detail="Клиент не найден")
 
-    client_name_lower = client["name"].lower()
+    key = client_key(client["name"])
+    if not key:
+        return []
+
     all_reports = sorted(
         REPORTS_DIR.glob("*.md"),
         key=lambda p: p.stat().st_mtime,
@@ -114,6 +118,7 @@ def client_reports(
     result = []
     for path in all_reports:
         meta = _parse_meta(path)
-        if client_name_lower in meta.client.lower():
+        # точное совпадение, а не подстрока: «ООО Ром» не должен видеть отчёты «ООО Ромашка»
+        if client_key(meta.client) == key:
             result.append(meta.model_dump())
     return result

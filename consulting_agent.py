@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +25,7 @@ from rich.table import Table
 load_dotenv()
 
 from utils.llm_router_client import LLM_ROUTER_INTERNAL_SECRET, call_llm_router
+from utils.report_files import save_report_file
 
 app = typer.Typer(help="CLI агент финансового консалтинга")
 console = Console()
@@ -61,12 +61,6 @@ SERVICES = {
     "7": ("lead_qualification", "Квалификация лида + КП"),
     "8": ("full_cycle", "Полный цикл: диагностика -> КП -> план проекта"),
 }
-
-
-def safe_slug(value: str, max_len: int = 40) -> str:
-    value = value.strip().replace(" ", "_")
-    value = re.sub(r"[^\w\-_.]", "", value, flags=re.UNICODE)
-    return value[:max_len] or "client"
 
 
 def load_skill(skill_name: str) -> str:
@@ -183,12 +177,7 @@ def run_analysis(client_data: dict[str, Any], skill_name: str, service_name: str
 
 
 def save_report(report_text: str, client_name: str, service_name: str) -> Path:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # "--" — разделитель для web/backend/routers/reports.py (_parse_meta)
-    filename = f"{timestamp}_{safe_slug(client_name, 30)}--{safe_slug(service_name, 24)}.md"
-    report_path = REPORTS_DIR / filename
-    report_path.write_text(report_text, encoding="utf-8")
-    return report_path
+    return save_report_file(REPORTS_DIR, report_text, client_name, service_name)
 
 
 def show_menu() -> tuple[str, str]:

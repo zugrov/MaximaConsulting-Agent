@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+# Корень проекта нужен для общего пакета utils (имена файлов отчётов)
+sys.path.insert(0, str(ROOT_DIR))
+
 # .env лежит в корне consulting-agent/ — загружать ДО импорта routers/services,
 # иначе os.getenv в ai.py прочитает пустые значения при import-time.
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(ROOT_DIR / ".env")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
