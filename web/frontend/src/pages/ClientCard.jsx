@@ -62,7 +62,7 @@ export default function ClientCard() {
       contact: client.contact || '',
       cloud_url: client.cloud_url || '',
       status: client.status,
-      amount: client.amount || '',
+      amount: client.amount ?? '',
       services: client.services || [],
       notes: client.notes || '',
     })
@@ -75,7 +75,7 @@ export default function ClientCard() {
     setSaving(true)
     setFormError('')
     try {
-      const body = { ...form, amount: form.amount ? parseFloat(form.amount) : null }
+      const body = { ...form, amount: form.amount === '' ? null : parseFloat(form.amount) }
       const resp = await fetch(`/api/clients/${id}`, {
         method: 'PATCH',
         headers: authHeaders,
@@ -203,7 +203,7 @@ export default function ClientCard() {
           <InfoCard title="Основное">
             <InfoRow label="Контакт" value={client.contact || '—'} />
             <InfoRow label="Статус" value={st.label} />
-            <InfoRow label="Сумма" value={client.amount ? `${Number(client.amount).toLocaleString('ru-RU')} ₽` : '—'} />
+            <InfoRow label="Сумма" value={client.amount != null ? `${Number(client.amount).toLocaleString('ru-RU')} ₽` : '—'} />
             <InfoRow
               label="Создан"
               value={client.created_at ? new Date(client.created_at).toLocaleDateString('ru-RU') : '—'}

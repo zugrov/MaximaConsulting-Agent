@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated, List, Optional
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from routers.auth import get_current_user
 from routers.reports import REPORTS_DIR, _parse_meta
@@ -20,6 +21,31 @@ from utils.report_files import client_key
 router = APIRouter()
 
 WRITE_ROLES = {"admin", "analyst"}
+SERVICE_CODES = {str(code) for code in range(1, 9)}
+
+
+def _validate_name(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        raise ValueError("Название не может быть пустым")
+    return value
+
+
+def _validate_services(value: Optional[List[str]]) -> Optional[List[str]]:
+    if value is None:
+        return None
+    unknown = [code for code in value if code not in SERVICE_CODES]
+    if unknown:
+        raise ValueError(f"Неизвестные коды услуг: {', '.join(unknown)}")
+    return list(dict.fromkeys(value))
+
+
+def _validate_cloud_url(value: Optional[str]) -> Optional[str]:
+    if value and urlparse(value).scheme not in ("http", "https"):
+        raise ValueError("Ссылка на облако должна начинаться с http:// или https://")
+    return value
 
 
 class ClientCreate(BaseModel):
@@ -27,9 +53,13 @@ class ClientCreate(BaseModel):
     contact: Optional[str] = None
     cloud_url: Optional[str] = None
     status: str = "lead"
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     services: List[str] = []
     notes: Optional[str] = None
+
+    _check_name = field_validator("name")(_validate_name)
+    _check_services = field_validator("services")(_validate_services)
+    _check_cloud_url = field_validator("cloud_url")(_validate_cloud_url)
 
 
 class ClientUpdate(BaseModel):
@@ -37,9 +67,17 @@ class ClientUpdate(BaseModel):
     contact: Optional[str] = None
     cloud_url: Optional[str] = None
     status: Optional[str] = None
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     services: Optional[List[str]] = None
     notes: Optional[str] = None
+
+    _check_name = field_validator("name")(_validate_name)
+    _check_services = field_validator("services")(_validate_services)
+    _check_cloud_url = field_validator("cloud_url")(_validate_cloud_url)
+
+
+# Поля, которые нельзя обнулить через PATCH (NOT NULL в схеме или обязательные значения)
+REQUIRED_UPDATE_FIELDS = {"name", "status", "services"}
 
 
 @router.get("")
@@ -82,7 +120,12 @@ def update(
         raise HTTPException(status_code=404, detail="Клиент не найден")
     if body.status and body.status not in ("lead", "project", "closed"):
         raise HTTPException(status_code=422, detail="Статус должен быть lead/project/closed")
-    fields = {k: v for k, v in body.model_dump().items() if v is not None}
+    # exclude_unset: явный null очищает поле (например, сумму), а не переданные поля не меняются
+    fields = {
+        key: value
+        for key, value in body.model_dump(exclude_unset=True).items()
+        if value is not None or key not in REQUIRED_UPDATE_FIELDS
+    }
     return update_client(client_id, **fields)
 
 

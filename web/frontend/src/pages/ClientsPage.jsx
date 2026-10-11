@@ -75,7 +75,7 @@ export default function ClientsPage() {
     try {
       const body = {
         ...form,
-        amount: form.amount ? parseFloat(form.amount) : null,
+        amount: form.amount === '' ? null : parseFloat(form.amount),
       }
       const resp = await fetch('/api/clients', {
         method: 'POST',
@@ -194,7 +194,7 @@ export default function ClientsPage() {
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13 }}>
-                      {c.amount ? `${Number(c.amount).toLocaleString('ru-RU')} ₽` : '—'}
+                      {c.amount != null ? `${Number(c.amount).toLocaleString('ru-RU')} ₽` : '—'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
