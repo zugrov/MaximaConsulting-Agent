@@ -121,7 +121,7 @@ def main() -> int:
             contact=case.get("contact"),
             status=case.get("status", "lead"),
             amount=case.get("amount"),
-            services=[service_name],
+            services=[code],
             notes=case.get("notes"),
         )
 
