@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
+import PasswordModal from '../components/PasswordModal'
 
 const ROLE_COLORS = {
   admin:   { bg: '#fce7f3', color: '#be185d' },
@@ -15,6 +16,7 @@ export default function AdminPage() {
   const [form, setForm] = useState({ email: '', name: '', password: '', role: 'analyst' })
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [passwordUser, setPasswordUser] = useState(null)
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -74,7 +76,7 @@ export default function AdminPage() {
           <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Имя" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Анна Кириллова" required />
             <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="a.kirillova@company.ru" required />
-            <Field label="Пароль" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} placeholder="Минимум 6 символов" required />
+            <Field label="Пароль" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} placeholder="Минимум 8 символов" required />
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5 }}>Роль</label>
               <select
@@ -141,6 +143,12 @@ export default function AdminPage() {
                   <option value="viewer">viewer</option>
                 </select>
                 <button
+                  onClick={() => setPasswordUser(u)}
+                  style={{ fontSize: 11, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+                >
+                  Пароль
+                </button>
+                <button
                   onClick={() => handleDelete(u.id, u.name)}
                   style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
                 >
@@ -150,6 +158,14 @@ export default function AdminPage() {
             )
           })}
         </div>
+      )}
+
+      {passwordUser && (
+        <PasswordModal
+          userId={passwordUser.id}
+          userName={passwordUser.name}
+          onClose={() => setPasswordUser(null)}
+        />
       )}
     </div>
   )

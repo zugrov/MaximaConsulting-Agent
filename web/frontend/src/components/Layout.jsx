@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import PasswordModal from './PasswordModal'
 
 const navItems = [
   { to: '/analysis', icon: '📄', label: 'Новый анализ' },
@@ -11,6 +13,7 @@ export default function Layout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -110,6 +113,18 @@ export default function Layout() {
 
           <div style={{ flex: 1 }} />
           <button
+            onClick={() => setIsPasswordOpen(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 16px', fontSize: 13, fontWeight: 500,
+              color: 'var(--text-muted)', background: 'none', border: 'none',
+              cursor: 'pointer', width: '100%', textAlign: 'left',
+            }}
+          >
+            <span>🔑</span>
+            <span>Сменить пароль</span>
+          </button>
+          <button
             onClick={handleLogout}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -128,6 +143,8 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {isPasswordOpen && <PasswordModal onClose={() => setIsPasswordOpen(false)} />}
     </div>
   )
 }
