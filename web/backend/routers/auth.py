@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 
@@ -16,8 +16,10 @@ from services.auth import (
     update_user_role,
     verify_password,
 )
+from services.login_limiter import LoginLimiter
 
 router = APIRouter()
+login_limiter = LoginLimiter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
@@ -60,14 +62,33 @@ def require_admin(current_user: Annotated[dict, Depends(get_current_user)]) -> d
     return current_user
 
 
+def _client_ip(request: Request) -> str:
+    # nginx дописывает реальный адрес в конец X-Forwarded-For; левые элементы подделываются клиентом
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @router.post("/login", response_model=Token)
-def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+def login(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+    ip = _client_ip(request)
+    wait = login_limiter.retry_after(ip, form_data.username)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Слишком много неудачных попыток входа. Повторите через {wait // 60 + 1} мин.",
+            headers={"Retry-After": str(wait)},
+        )
+
     user = get_user_by_email(form_data.username)
     if not user or not verify_password(form_data.password, user["password_hash"]):
+        login_limiter.register_failure(ip, form_data.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
         )
+    login_limiter.reset_account(ip, form_data.username)
     token = create_access_token({"email": user["email"], "role": user["role"]})
     return Token(access_token=token, token_type="bearer")
 

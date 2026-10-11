@@ -30,6 +30,7 @@ def build_test_client(tmp_dir: Path):
     from routers import reports as reports_router
     from services import auth as auth_service
     from services import clients_db
+    from services.login_limiter import LoginLimiter
 
     reports_dir = tmp_dir / "reports"
     reports_dir.mkdir()
@@ -37,6 +38,7 @@ def build_test_client(tmp_dir: Path):
     clients_db.DB_PATH = tmp_dir / "clients.db"
     reports_router.REPORTS_DIR = reports_dir
     clients_router.REPORTS_DIR = reports_dir
+    auth_router.login_limiter = LoginLimiter()
     clients_db.init_db()
 
     for role in ("admin", "analyst", "viewer"):
