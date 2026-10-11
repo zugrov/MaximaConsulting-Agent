@@ -32,7 +32,17 @@ console = Console()
 
 ROOT_DIR = Path(__file__).resolve().parent
 SKILLS_DIR = ROOT_DIR / "skills"
-REPORTS_DIR = ROOT_DIR / "reports"
+
+
+def _resolve_reports_dir() -> Path:
+    raw = os.getenv("REPORTS_DIR")
+    if not raw:
+        return ROOT_DIR / "reports"
+    path = Path(raw)
+    return path if path.is_absolute() else ROOT_DIR / path
+
+
+REPORTS_DIR = _resolve_reports_dir()
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8000"))

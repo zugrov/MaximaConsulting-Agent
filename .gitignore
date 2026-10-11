@@ -13,6 +13,8 @@ venv/
 # Данные приложения (локальные)
 reports/
 web/backend/data/clients.db
+web/backend/data/clients_audit.db
+.env.audit
 
 # Node / frontend
 web/frontend/node_modules/

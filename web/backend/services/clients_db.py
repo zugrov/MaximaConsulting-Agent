@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
-DB_PATH = Path(__file__).resolve().parents[1] / "data" / "clients.db"
+_DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "clients.db"
+DB_PATH = Path(os.environ.get("CLIENTS_DB_PATH", _DEFAULT_DB))
 
 
 def init_db() -> None:
