@@ -42,7 +42,6 @@ export default function ClientsPage() {
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
   const loadClients = async () => {
-    setLoading(true)
     try {
       const resp = await fetch('/api/clients', { headers: authHeaders })
       if (!resp.ok) throw new Error()
@@ -54,6 +53,9 @@ export default function ClientsPage() {
     }
   }
 
+  // Загрузка один раз при открытии страницы
+  // loadClients используется и после сохранения, поэтому не встроена в эффект
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { loadClients() }, [])
 
   const filtered = clients.filter((c) => {

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import ResultViewer from '../components/ResultViewer'
@@ -30,7 +30,8 @@ export default function AnalysisPage() {
 
   const [files, setFiles] = useState([])
   const [serviceCode, setServiceCode] = useState('1')
-  const [clientName, setClientName] = useState('')
+  // При переходе с карточки клиента имя и ссылка приходят в параметрах адреса
+  const [clientName, setClientName] = useState(() => searchParams.get('clientName') || '')
   const [context, setContext] = useState('')
   const [step, setStep] = useState(1)
   const [streaming, setStreaming] = useState(false)
@@ -38,22 +39,10 @@ export default function AnalysisPage() {
   const [error, setError] = useState('')
   const [isTruncated, setIsTruncated] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [uploadTab, setUploadTab] = useState('local') // 'local' | 'cloud'
+  // 'local' | 'cloud'; есть cloudUrl — сразу вкладка «По ссылке»
+  const [uploadTab, setUploadTab] = useState(() => (searchParams.get('cloudUrl') ? 'cloud' : 'local'))
   const fileInputRef = useRef(null)
   const abortRef = useRef(null)
-
-  // При переходе с карточки клиента (?clientId=N) — подгружаем данные клиента
-  useEffect(() => {
-    const clientId = searchParams.get('clientId')
-    const clientNameParam = searchParams.get('clientName')
-    const cloudUrl = searchParams.get('cloudUrl')
-
-    if (clientNameParam) setClientName(decodeURIComponent(clientNameParam))
-    if (cloudUrl) {
-      // Переключить на вкладку «По ссылке» если есть cloudUrl
-      setUploadTab('cloud')
-    }
-  }, [searchParams])
 
   const addFiles = (newFiles) => {
     const rejected = []

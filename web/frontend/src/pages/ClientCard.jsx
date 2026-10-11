@@ -54,6 +54,8 @@ export default function ClientCard() {
       }
     }
     load()
+    // Перезагрузка только при смене клиента
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const openEdit = () => {
