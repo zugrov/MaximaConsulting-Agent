@@ -10,14 +10,18 @@ export default function ResultViewer({ content, streaming, serviceName, clientNa
   const handleSave = async () => {
     if (!content) return
     try {
-      await fetch('/api/reports', {
+      const resp = await fetch('/api/reports', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, client_name: clientName, service_name: serviceName }),
       })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}))
+        throw new Error(typeof err.detail === 'string' ? err.detail : `HTTP ${resp.status}`)
+      }
       alert('Отчёт сохранён в историю')
-    } catch {
-      alert('Ошибка при сохранении')
+    } catch (err) {
+      alert(`Ошибка при сохранении: ${err.message}`)
     }
   }
 

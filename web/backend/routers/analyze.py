@@ -50,7 +50,13 @@ async def analyze(
         content = await f.read()
         if not content:
             continue
-        parsed = parse_file(content, f.filename or "file")
+        try:
+            parsed = parse_file(content, f.filename or "file")
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Не удалось прочитать файл «{f.filename}»: проверьте формат и содержимое",
+            )
         if parsed["truncated"]:
             any_truncated = True
         parts.append(f"=== {parsed['source_file']} ===\n{parsed['raw']}")

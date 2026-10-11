@@ -23,8 +23,10 @@ def build_test_client(tmp_dir: Path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
+    from routers import analyze as analyze_router
     from routers import auth as auth_router
     from routers import clients as clients_router
+    from routers import cloud as cloud_router
     from routers import reports as reports_router
     from services import auth as auth_service
     from services import clients_db
@@ -44,6 +46,8 @@ def build_test_client(tmp_dir: Path):
     app.include_router(auth_router.router, prefix="/api/auth")
     app.include_router(clients_router.router, prefix="/api/clients")
     app.include_router(reports_router.router, prefix="/api/reports")
+    app.include_router(analyze_router.router, prefix="/api")
+    app.include_router(cloud_router.router, prefix="/api/cloud")
     return TestClient(app), reports_dir
 
 
