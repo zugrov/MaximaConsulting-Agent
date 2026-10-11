@@ -71,6 +71,25 @@ class ApiErrorsTest(unittest.TestCase):
                 )
                 self.assertEqual(response.status_code, 400, response.text)
 
+    def test_user_creation_rejects_invalid_email_and_empty_name(self) -> None:
+        admin = auth_headers(self.client, "admin")
+        for email, name in (("not-an-email", "Иван"), ("a@b", "Иван"), ("ok@example.com", "")):
+            with self.subTest(email=email, name=name):
+                response = self.client.post(
+                    "/api/auth/users",
+                    headers=admin,
+                    json={"email": email, "name": name, "password": "secret-1", "role": "viewer"},
+                )
+                self.assertEqual(response.status_code, 422, response.text)
+
+        created = self.client.post(
+            "/api/auth/users",
+            headers=admin,
+            json={"email": " new@example.com ", "name": "Иван", "password": "secret-1"},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertEqual(created.json()["email"], "new@example.com")
+
 
 if __name__ == "__main__":
     unittest.main()

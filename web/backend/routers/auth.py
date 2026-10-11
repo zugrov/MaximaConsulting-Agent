@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from services.auth import (
     create_access_token,
@@ -35,11 +36,22 @@ class UserOut(BaseModel):
     role: str
 
 
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 class UserCreate(BaseModel):
     email: str
-    name: str
+    name: str = Field(min_length=1)
     password: str = Field(min_length=6)
     role: str = "analyst"
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        value = value.strip()
+        if not EMAIL_PATTERN.match(value):
+            raise ValueError("Некорректный email")
+        return value
 
 
 class RoleUpdate(BaseModel):
