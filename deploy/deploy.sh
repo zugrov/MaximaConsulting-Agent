@@ -12,8 +12,9 @@ cd "$APP_DIR"
 echo "=== git pull ==="
 # Git 2.35+ блокирует pull в «чужом» каталоге (dubious ownership), если скрипт
 # запущен от root, а репозиторий принадлежит www-data.
-git config --global --add safe.directory "$APP_DIR"
-sudo -u "$DEPLOY_USER" git -C "$APP_DIR" pull origin main
+# -c не пишет в ~/.gitconfig: у www-data нет права на /var/www/.gitconfig,
+# а каталог репозитория принадлежит другому пользователю
+sudo -u "$DEPLOY_USER" git -c safe.directory="$APP_DIR" -C "$APP_DIR" pull origin main
 
 echo "=== Python-зависимости ==="
 source venv/bin/activate
