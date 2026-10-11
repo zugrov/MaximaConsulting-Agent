@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +17,15 @@ from support import auth_headers, build_test_client
 
 def router_response(status: int, **kwargs) -> httpx.Response:
     return httpx.Response(status, request=httpx.Request("POST", "http://router/v1/complete"), **kwargs)
+
+
+def decode_report(body: str) -> str:
+    """Собирает текст отчёта так же, как клиент: JSON-фрагменты, служебные строки пропускаются."""
+    parts = []
+    for line in body.splitlines():
+        if line.startswith('data: "'):
+            parts.append(json.loads(line[len("data: "):]))
+    return "".join(parts)
 
 
 async def collect(router_result=None, router_error=None, secret="test-secret") -> str:
@@ -43,8 +53,13 @@ class StreamAnalysisTest(unittest.IsolatedAsyncioTestCase):
     async def test_success_streams_content_and_done(self) -> None:
         body = await collect(router_response(200, json={"content": "# Отчёт\nМаржа 20%"}))
         self.assertIn("[STARTED]", body)
-        self.assertIn("# Отчёт\\nМаржа 20%", body)
         self.assertTrue(body.rstrip().endswith("data: [DONE]"))
+        self.assertEqual(decode_report(body), "# Отчёт\nМаржа 20%")
+
+    async def test_backslashes_and_long_text_survive_the_stream(self) -> None:
+        text = ("Путь C:\\new\\table и \\n в тексте.\n" + "строка " * 300 + "\n") * 3
+        body = await collect(router_response(200, json={"content": text}))
+        self.assertEqual(decode_report(body), text.strip())  # сервер обрезает края ответа
 
     async def test_model_unavailable_gives_readable_error(self) -> None:
         response = router_response(503, json={"detail": {"error_code": "MODEL_UNAVAILABLE"}})

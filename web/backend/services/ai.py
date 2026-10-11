@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -107,8 +108,8 @@ def _yield_content_chunks(content: str) -> list[str]:
     chunk_size = 400
     for i in range(0, len(content), chunk_size):
         piece = content[i : i + chunk_size]
-        escaped = piece.replace("\n", "\\n")
-        events.append(f"data: {escaped}\n\n")
+        # JSON-строка: переводы строк и обратные слеши из текста не путаются со служебными
+        events.append(f"data: {json.dumps(piece, ensure_ascii=False)}\n\n")
     events.append("data: [DONE]\n\n")
     return events
 
