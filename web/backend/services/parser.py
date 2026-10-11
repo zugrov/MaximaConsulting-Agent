@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 
+MAX_FILE_BYTES = 20 * 1024 * 1024  # лимит размера одного файла (загрузка и скачивание по ссылке)
 MAX_CHARS = 100_000  # лимит на один файл при парсинге
 LLM_MAX_COMBINED_CHARS = 50_000  # лимит суммарного промпта для LLM (несколько файлов)
 

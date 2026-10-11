@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from routers.auth import get_current_user
 from services.ai import SERVICES, get_services, stream_analysis
-from services.parser import parse_file, truncate_combined
+from services.parser import MAX_FILE_BYTES, parse_file, truncate_combined
 
 router = APIRouter()
 
@@ -47,7 +47,12 @@ async def analyze(
     parts: list[str] = []
     any_truncated = False
     for f in files:
-        content = await f.read()
+        content = await f.read(MAX_FILE_BYTES + 1)
+        if len(content) > MAX_FILE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Файл «{f.filename}» больше {MAX_FILE_BYTES // (1024 * 1024)} МБ",
+            )
         if not content:
             continue
         try:

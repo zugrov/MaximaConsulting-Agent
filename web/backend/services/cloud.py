@@ -13,6 +13,8 @@ from typing import Dict, List, Optional, Tuple
 
 import httpx
 
+from services.parser import MAX_FILE_BYTES
+
 ALLOWED_EXT = {".xlsx", ".xls", ".csv", ".json", ".txt", ".md", ".pdf", ".docx"}
 
 # Яндекс.Диск public API (без авторизации)
@@ -64,6 +66,26 @@ async def _check_request(request: httpx.Request) -> None:
 def _client(**kwargs) -> httpx.AsyncClient:
     """HTTP-клиент, проверяющий каждый запрос (включая редиректы) на публичный адрес."""
     return httpx.AsyncClient(event_hooks={"request": [_check_request]}, **kwargs)
+
+
+async def _fetch(url: str, timeout: float) -> Tuple[httpx.Response, bytes]:
+    """GET с потоковым чтением: прерывает скачивание, если файл больше MAX_FILE_BYTES."""
+    limit_mb = MAX_FILE_BYTES // (1024 * 1024)
+    chunks: List[bytes] = []
+    total = 0
+    async with _client(follow_redirects=True, timeout=timeout) as client:
+        async with client.stream("GET", url, headers=HEADERS) as resp:
+            if resp.status_code != 200:
+                return resp, b""
+            declared = int(resp.headers.get("content-length") or 0)
+            if declared > MAX_FILE_BYTES:
+                raise ValueError(f"Файл больше {limit_mb} МБ")
+            async for chunk in resp.aiter_bytes():
+                total += len(chunk)
+                if total > MAX_FILE_BYTES:
+                    raise ValueError(f"Файл больше {limit_mb} МБ")
+                chunks.append(chunk)
+    return resp, b"".join(chunks)
 
 
 def _google_drive_api_key() -> str:
@@ -329,14 +351,13 @@ async def _dropbox_list_folder(folder_url: str) -> List[Dict]:
     Файлы возвращаются с base64-содержимым или как временные blob-описания.
     """
     dl_url = to_download_url(folder_url, "dropbox")
-    async with _client(follow_redirects=True, timeout=60) as client:
-        resp = await client.get(dl_url, headers=HEADERS)
+    resp, body = await _fetch(dl_url, timeout=60)
     if resp.status_code != 200:
         raise ValueError(f"Dropbox вернул {resp.status_code}")
 
     files: list[dict] = []
     try:
-        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+        with zipfile.ZipFile(io.BytesIO(body)) as zf:
             for info in zf.infolist():
                 if info.is_dir():
                     continue
@@ -383,9 +404,13 @@ async def download_file(url: str, provider: str, extra: Optional[Dict] = None) -
     if provider == "dropbox" and extra.get("_zip_path"):
         # Файл из zip-архива Dropbox
         folder_dl_url = to_download_url(extra["_folder_url"], "dropbox")
-        async with _client(follow_redirects=True, timeout=60) as client:
-            resp = await client.get(folder_dl_url, headers=HEADERS)
-        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+        resp, body = await _fetch(folder_dl_url, timeout=60)
+        if resp.status_code != 200:
+            raise ValueError(f"Dropbox вернул {resp.status_code}")
+        with zipfile.ZipFile(io.BytesIO(body)) as zf:
+            # размер до распаковки: защита от архива, раздувающегося при чтении
+            if zf.getinfo(extra["_zip_path"]).file_size > MAX_FILE_BYTES:
+                raise ValueError(f"Файл больше {MAX_FILE_BYTES // (1024 * 1024)} МБ")
             content = zf.read(extra["_zip_path"])
         name = PurePosixPath(extra["_zip_path"]).name
         return content, name
@@ -401,12 +426,11 @@ async def download_file(url: str, provider: str, extra: Optional[Dict] = None) -
 
 
 async def _http_download(url: str) -> Tuple[bytes, str]:
-    async with _client(follow_redirects=True, timeout=60) as client:
-        resp = await client.get(url, headers=HEADERS)
+    resp, body = await _fetch(url, timeout=60)
     if resp.status_code != 200:
         raise ValueError(f"HTTP {resp.status_code} при скачивании {url[:80]}")
     name = _guess_filename_from_response(resp, url)
-    return resp.content, name
+    return body, name
 
 
 def _guess_filename_from_response(resp: httpx.Response, url: str) -> str:
