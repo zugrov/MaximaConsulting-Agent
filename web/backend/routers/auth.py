@@ -5,15 +5,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from services.auth import (
+    MAX_PASSWORD_BYTES,
     create_access_token,
     create_user,
     decode_token,
     delete_user,
     get_user_by_email,
     list_users,
+    set_user_password,
     update_user_role,
     verify_password,
 )
@@ -37,12 +39,24 @@ class UserOut(BaseModel):
 
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MIN_PASSWORD_LENGTH = 8
+
+
+def _check_password_bytes(value: str) -> str:
+    if len(value.encode()) > MAX_PASSWORD_BYTES:
+        raise ValueError(f"Пароль слишком длинный: не более {MAX_PASSWORD_BYTES} байт")
+    return value
+
+
+NewPassword = Annotated[
+    str, Field(min_length=MIN_PASSWORD_LENGTH), AfterValidator(_check_password_bytes)
+]
 
 
 class UserCreate(BaseModel):
     email: str
     name: str = Field(min_length=1)
-    password: str = Field(min_length=6)
+    password: NewPassword
     role: str = "analyst"
 
     @field_validator("email")
@@ -56,6 +70,15 @@ class UserCreate(BaseModel):
 
 class RoleUpdate(BaseModel):
     role: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: NewPassword
+
+
+class PasswordReset(BaseModel):
+    new_password: NewPassword
 
 
 def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
@@ -108,6 +131,28 @@ def login(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depe
 @router.get("/me", response_model=UserOut)
 def me(current_user: Annotated[dict, Depends(get_current_user)]) -> UserOut:
     return UserOut(**{k: current_user[k] for k in ("id", "email", "name", "role")})
+
+
+@router.post("/me/password", status_code=204)
+def change_own_password(
+    body: PasswordChange,
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> None:
+    if not verify_password(body.current_password, current_user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Неверный текущий пароль")
+    if body.new_password == body.current_password:
+        raise HTTPException(status_code=422, detail="Новый пароль совпадает с текущим")
+    set_user_password(current_user["id"], body.new_password)
+
+
+@router.put("/users/{user_id}/password", status_code=204)
+def reset_user_password(
+    user_id: int,
+    body: PasswordReset,
+    _: Annotated[dict, Depends(require_admin)],
+) -> None:
+    if not set_user_password(user_id, body.new_password):
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
 
 
 @router.get("/users", response_model=list[UserOut])

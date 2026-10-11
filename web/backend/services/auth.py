@@ -32,6 +32,7 @@ def load_jwt_secret() -> str:
 
 SECRET_KEY = load_jwt_secret()
 ALGORITHM = "HS256"
+MAX_PASSWORD_BYTES = 72  # ограничение bcrypt
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 часов
 
 USERS_FILE = Path(__file__).resolve().parents[1] / "data" / "users.json"
@@ -56,7 +57,11 @@ def get_user_by_email(email: str) -> Optional[dict]:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode(), hashed.encode())
+    encoded = plain.encode()
+    # bcrypt не принимает пароли длиннее лимита: такой пароль заведомо не подходит
+    if len(encoded) > MAX_PASSWORD_BYTES:
+        return False
+    return bcrypt.checkpw(encoded, hashed.encode())
 
 
 def hash_password(plain: str) -> str:
@@ -100,6 +105,16 @@ def update_user_role(user_id: int, role: str) -> bool:
     for u in users:
         if u["id"] == user_id:
             u["role"] = role
+            _save_users(users)
+            return True
+    return False
+
+
+def set_user_password(user_id: int, new_password: str) -> bool:
+    users = _load_users()
+    for u in users:
+        if u["id"] == user_id:
+            u["password_hash"] = hash_password(new_password)
             _save_users(users)
             return True
     return False
