@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -22,7 +23,16 @@ from routers.clients import router as clients_router
 from routers.cloud import router as cloud_router
 from services.clients_db import init_db
 
-app = FastAPI(title="maxima consulting AI Agent", version="1.0.0")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Инициализация БД клиентов при старте
+    init_db()
+    yield
+
+
+app = FastAPI(title="maxima consulting AI Agent", version="1.0.0", lifespan=lifespan)
 
 _default_origins = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"
 _origins_raw = os.getenv("ALLOWED_ORIGINS", _default_origins)
@@ -35,11 +45,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Инициализация БД клиентов при старте
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(analyze.router, prefix="/api", tags=["analyze"])
