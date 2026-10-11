@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -9,7 +11,26 @@ from typing import Optional
 import bcrypt
 from jose import JWTError, jwt
 
-SECRET_KEY = os.getenv("JWT_SECRET", "maxima-consulting-secret-change-in-prod")
+logger = logging.getLogger(__name__)
+
+# Значения, которые нельзя использовать как секрет: они публично известны
+INSECURE_JWT_SECRETS = {"", "change-me-in-production", "maxima-consulting-secret-change-in-prod"}
+
+
+def load_jwt_secret() -> str:
+    """Секрет из JWT_SECRET. Если он не задан или известен публично — временный случайный:
+    сервис работает, токены нельзя подделать, но после перезапуска нужен повторный вход."""
+    secret = os.getenv("JWT_SECRET", "")
+    if secret in INSECURE_JWT_SECRETS:
+        logger.warning(
+            "JWT_SECRET не задан или небезопасен: используется временный секрет, "
+            "сессии сбросятся при перезапуске. Задайте JWT_SECRET в .env."
+        )
+        return secrets.token_hex(32)
+    return secret
+
+
+SECRET_KEY = load_jwt_secret()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 часов
 
