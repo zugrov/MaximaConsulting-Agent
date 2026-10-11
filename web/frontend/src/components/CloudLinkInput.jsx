@@ -202,8 +202,8 @@ export default function CloudLinkInput({ onFilesReady }) {
         </div>
       )}
 
-      {/* Ошибка */}
-      {status === 'error' && errorMsg && (
+      {/* Ошибка: определения ссылки и скачивания (у «unsupported» своё сообщение) */}
+      {status !== 'unsupported' && errorMsg && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: 'var(--danger)', borderRadius: 6, padding: '8px 12px', fontSize: 12, marginBottom: 8 }}>
           {errorMsg}
         </div>
