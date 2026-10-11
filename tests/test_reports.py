@@ -10,6 +10,7 @@ from unittest import mock
 
 import support
 from support import auth_headers, build_test_client
+from utils.report_files import client_key
 
 
 class FixedDatetime(datetime):
@@ -27,6 +28,9 @@ class ReportsApiTest(unittest.TestCase):
         self.viewer = auth_headers(self.client, "viewer")
 
     def save_report(self, client_name: str, content: str, service: str = "Диагностика") -> str:
+        owned = self.client.get("/api/clients", headers=self.analyst).json()
+        if client_key(client_name) not in {client_key(item["name"]) for item in owned}:
+            self.create_client(client_name)
         response = self.client.post(
             "/api/reports",
             headers=self.analyst,
@@ -41,7 +45,7 @@ class ReportsApiTest(unittest.TestCase):
         return response.json()["id"]
 
     def report_filenames(self, client_id: int) -> list:
-        response = self.client.get(f"/api/clients/{client_id}/reports", headers=self.viewer)
+        response = self.client.get(f"/api/clients/{client_id}/reports", headers=self.analyst)
         self.assertEqual(response.status_code, 200)
         return [item["filename"] for item in response.json()]
 
@@ -59,7 +63,7 @@ class ReportsApiTest(unittest.TestCase):
             self.save_report("ООО Ромашка", "# R1", "НДС-аудит")
             self.save_report("ООО Ромашка", "# R2", "НДС-аудит")
 
-        listing = self.client.get("/api/reports", headers=self.viewer).json()
+        listing = self.client.get("/api/reports", headers=self.analyst).json()
         self.assertEqual({(r["client"], r["service"]) for r in listing}, {("ООО Ромашка", "НДС-аудит")})
 
     def test_client_sees_only_own_reports(self) -> None:
@@ -95,7 +99,7 @@ class ReportsApiTest(unittest.TestCase):
 
     def test_saved_report_is_downloadable(self) -> None:
         filename = self.save_report("ООО Ромашка", "# Отчёт")
-        response = self.client.get(f"/api/reports/{filename}/download", headers=self.viewer)
+        response = self.client.get(f"/api/reports/{filename}/download", headers=self.analyst)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.text, "# Отчёт")
 

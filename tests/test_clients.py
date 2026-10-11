@@ -80,6 +80,61 @@ class ClientsApiTest(unittest.TestCase):
                     self.client.patch(url, headers=self.analyst, json=body).status_code, 422
                 )
 
+    def test_analyst_sees_only_own_clients(self) -> None:
+        own = self.post({"name": "Свой клиент"}).json()
+        admin = auth_headers(self.client, "admin")
+        foreign = self.client.post(
+            "/api/clients", headers=admin, json={"name": "Чужой клиент"}
+        ).json()
+
+        names = [item["name"] for item in self.client.get("/api/clients", headers=self.analyst).json()]
+        self.assertEqual(names, ["Свой клиент"])
+        self.assertEqual(
+            self.client.get(f"/api/clients/{foreign['id']}", headers=self.analyst).status_code, 404
+        )
+        self.assertEqual(self.client.get(f"/api/clients/{own['id']}", headers=self.analyst).status_code, 200)
+
+        admin_names = {item["name"] for item in self.client.get("/api/clients", headers=admin).json()}
+        self.assertEqual(admin_names, {"Свой клиент", "Чужой клиент"})
+
+    def test_only_admin_can_assign_owner_and_unassigned_stays_with_admin(self) -> None:
+        self.assertEqual(self.post({"name": "X", "owner_id": 1}).status_code, 403)
+        admin = auth_headers(self.client, "admin")
+        created = self.post({"name": "Общий"}).json()
+        cleared = self.client.patch(
+            f"/api/clients/{created['id']}", headers=admin, json={"owner_id": None}
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.text)
+        self.assertIsNone(cleared.json()["owner_id"])
+        self.assertEqual(self.client.get("/api/clients", headers=self.analyst).json(), [])
+
+    def test_other_analyst_cannot_read_report_of_foreign_client(self) -> None:
+        self.post({"name": "ООО Ромашка"})
+        saved = self.client.post(
+            "/api/reports",
+            headers=self.analyst,
+            json={"content": "# секрет", "client_name": "ООО Ромашка", "service_name": "Диагностика"},
+        )
+        self.assertEqual(saved.status_code, 201, saved.text)
+        filename = saved.json()["filename"]
+
+        admin = auth_headers(self.client, "admin")
+        created = self.client.post(
+            "/api/auth/users",
+            headers=admin,
+            json={"email": "other@example.invalid", "name": "Другой", "password": "other-pass-1",
+                  "role": "analyst"},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        login = self.client.post(
+            "/api/auth/login",
+            data={"username": "other@example.invalid", "password": "other-pass-1"},
+        )
+        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        self.assertEqual(self.client.get("/api/reports", headers=headers).json(), [])
+        self.assertEqual(self.client.get(f"/api/reports/{filename}", headers=headers).status_code, 404)
+        self.assertEqual(self.client.get("/api/reports", headers=admin).status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

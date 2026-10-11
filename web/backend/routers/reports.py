@@ -10,7 +10,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from routers.auth import get_current_user
-from utils.report_files import resolve_reports_dir, save_report_file
+from services.clients_db import list_clients
+from utils.report_files import client_key, resolve_reports_dir, save_report_file
 
 router = APIRouter()
 
@@ -57,10 +58,29 @@ def _parse_meta(path: Path) -> ReportMeta:
     )
 
 
+def _owned_client_keys(user: dict) -> set[str] | None:
+    """None — admin видит все отчёты. Остальные — только по своим клиентам."""
+    if user["role"] == "admin":
+        return None
+    return {
+        client_key(client["name"])
+        for client in list_clients(owner_id=user["id"])
+        if client_key(client["name"])
+    }
+
+
+def _can_read_report(user: dict, path: Path) -> bool:
+    keys = _owned_client_keys(user)
+    if keys is None:
+        return True
+    return client_key(_parse_meta(path).client) in keys
+
+
 @router.get("", response_model=list[ReportMeta])
 def list_reports(current_user: Annotated[dict, Depends(get_current_user)]) -> list[ReportMeta]:
     reports = sorted(REPORTS_DIR.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
-    return [_parse_meta(r) for r in reports[:50]]
+    visible = [_parse_meta(path) for path in reports if _can_read_report(current_user, path)]
+    return visible[:50]
 
 
 def _resolve_report(filename: str) -> Path:
@@ -78,6 +98,8 @@ def get_report(
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict:
     path = _resolve_report(filename)
+    if not _can_read_report(current_user, path):
+        raise HTTPException(status_code=404, detail="Отчёт не найден")
     return {"filename": path.name, "content": path.read_text(encoding="utf-8")}
 
 
@@ -87,6 +109,8 @@ def download_report(
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> FileResponse:
     path = _resolve_report(filename)
+    if not _can_read_report(current_user, path):
+        raise HTTPException(status_code=404, detail="Отчёт не найден")
     return FileResponse(path, media_type="text/markdown", filename=path.name)
 
 
@@ -97,5 +121,8 @@ def save_report(
 ) -> dict:
     if current_user["role"] not in ("admin", "analyst"):
         raise HTTPException(status_code=403, detail="Недостаточно прав")
+    keys = _owned_client_keys(current_user)
+    if keys is not None and client_key(body.client_name) not in keys:
+        raise HTTPException(status_code=403, detail="Нет клиента с таким названием")
     path = save_report_file(REPORTS_DIR, body.content, body.client_name, body.service_name)
     return {"filename": path.name}

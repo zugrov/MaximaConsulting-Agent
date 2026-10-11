@@ -56,6 +56,7 @@ class ClientCreate(BaseModel):
     amount: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     services: List[str] = []
     notes: Optional[str] = None
+    owner_id: Optional[int] = None
 
     _check_name = field_validator("name")(_validate_name)
     _check_services = field_validator("services")(_validate_services)
@@ -70,6 +71,7 @@ class ClientUpdate(BaseModel):
     amount: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     services: Optional[List[str]] = None
     notes: Optional[str] = None
+    owner_id: Optional[int] = None
 
     _check_name = field_validator("name")(_validate_name)
     _check_services = field_validator("services")(_validate_services)
@@ -80,9 +82,34 @@ class ClientUpdate(BaseModel):
 REQUIRED_UPDATE_FIELDS = {"name", "status", "services"}
 
 
+def can_see_client(user: dict, client: Optional[dict]) -> bool:
+    if not client:
+        return False
+    if user["role"] == "admin":
+        return True
+    return client.get("owner_id") == user["id"]
+
+
+def _visible_or_404(user: dict, client_id: int) -> dict:
+    client = get_client(client_id)
+    if not can_see_client(user, client):
+        raise HTTPException(status_code=404, detail="Клиент не найден")
+    return client
+
+
+def _owner_id(user: dict, requested: Optional[int]) -> Optional[int]:
+    if requested is None:
+        return user["id"]
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Назначать ответственного может только admin")
+    return requested
+
+
 @router.get("")
 def list_all(current_user: Annotated[dict, Depends(get_current_user)]) -> list[dict]:
-    return list_clients()
+    if current_user["role"] == "admin":
+        return list_clients()
+    return list_clients(owner_id=current_user["id"])
 
 
 @router.post("", status_code=201)
@@ -94,7 +121,8 @@ def create(
         raise HTTPException(status_code=403, detail="Недостаточно прав")
     if body.status not in ("lead", "project", "closed"):
         raise HTTPException(status_code=422, detail="Статус должен быть lead/project/closed")
-    return create_client(**body.model_dump())
+    data = body.model_dump(exclude={"owner_id"})
+    return create_client(**data, owner_id=_owner_id(current_user, body.owner_id))
 
 
 @router.get("/{client_id}")
@@ -102,10 +130,7 @@ def get_one(
     client_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict:
-    client = get_client(client_id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Клиент не найден")
-    return client
+    return _visible_or_404(current_user, client_id)
 
 
 @router.patch("/{client_id}")
@@ -116,8 +141,9 @@ def update(
 ) -> dict:
     if current_user["role"] not in WRITE_ROLES:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
-    if not get_client(client_id):
-        raise HTTPException(status_code=404, detail="Клиент не найден")
+    _visible_or_404(current_user, client_id)
+    if "owner_id" in body.model_fields_set and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Назначать ответственного может только admin")
     if body.status and body.status not in ("lead", "project", "closed"):
         raise HTTPException(status_code=422, detail="Статус должен быть lead/project/closed")
     # exclude_unset: явный null очищает поле (например, сумму), а не переданные поля не меняются
@@ -136,8 +162,8 @@ def remove(
 ) -> None:
     if current_user["role"] not in WRITE_ROLES:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
-    if not delete_client(client_id):
-        raise HTTPException(status_code=404, detail="Клиент не найден")
+    _visible_or_404(current_user, client_id)
+    delete_client(client_id)
 
 
 @router.get("/{client_id}/reports")
@@ -145,9 +171,7 @@ def client_reports(
     client_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> list[dict]:
-    client = get_client(client_id)
-    if not client:
-        raise HTTPException(status_code=404, detail="Клиент не найден")
+    client = _visible_or_404(current_user, client_id)
 
     key = client_key(client["name"])
     if not key:

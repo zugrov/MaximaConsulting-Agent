@@ -26,9 +26,13 @@ def init_db() -> None:
                 services   TEXT,
                 notes      TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                owner_id   INTEGER
             )
         """)
+        columns = {row[1] for row in con.execute("PRAGMA table_info(clients)")}
+        if "owner_id" not in columns:
+            con.execute("ALTER TABLE clients ADD COLUMN owner_id INTEGER")
 
 
 @contextmanager
@@ -48,11 +52,15 @@ def _row_to_dict(row: sqlite3.Row) -> Dict:
     return d
 
 
-def list_clients() -> List[Dict]:
+def list_clients(owner_id: Optional[int] = None) -> List[Dict]:
+    query = "SELECT * FROM clients"
+    params: List = []
+    if owner_id is not None:
+        query += " WHERE owner_id = ?"
+        params.append(owner_id)
+    query += " ORDER BY updated_at DESC"
     with _conn() as con:
-        rows = con.execute(
-            "SELECT * FROM clients ORDER BY updated_at DESC"
-        ).fetchall()
+        rows = con.execute(query, params).fetchall()
     return [_row_to_dict(r) for r in rows]
 
 
@@ -72,14 +80,16 @@ def create_client(
     amount: Optional[float] = None,
     services: Optional[List[str]] = None,
     notes: Optional[str] = None,
+    owner_id: Optional[int] = None,
 ) -> Dict:
     now = datetime.now().isoformat()
     with _conn() as con:
         cur = con.execute(
             """
             INSERT INTO clients
-                (name, contact, cloud_url, status, amount, services, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (name, contact, cloud_url, status, amount, services, notes,
+                 created_at, updated_at, owner_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -91,6 +101,7 @@ def create_client(
                 notes,
                 now,
                 now,
+                owner_id,
             ),
         )
         client_id = cur.lastrowid

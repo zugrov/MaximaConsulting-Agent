@@ -48,6 +48,7 @@ export default function ClientsPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [users, setUsers] = useState([])
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -56,6 +57,10 @@ export default function ClientsPage() {
       const resp = await fetch('/api/clients', { headers: authHeaders })
       if (!resp.ok) throw new Error()
       setClients(await resp.json())
+      if (user?.role === 'admin') {
+        const usersResp = await fetch('/api/auth/users', { headers: authHeaders })
+        if (usersResp.ok) setUsers(await usersResp.json())
+      }
     } catch {
       // silent
     } finally {
@@ -89,6 +94,8 @@ export default function ClientsPage() {
         ...form,
         amount: form.amount === '' ? null : parseFloat(form.amount),
       }
+      if (body.owner_id) body.owner_id = Number(body.owner_id)
+      else delete body.owner_id
       const resp = await fetch('/api/clients', {
         method: 'POST',
         headers: authHeaders,
@@ -243,7 +250,7 @@ export default function ClientsPage() {
       {/* Модальное окно создания */}
       {showModal && (
         <Modal title="Новый клиент" onClose={() => setShowModal(false)}>
-          <ClientForm form={form} setForm={setForm} />
+          <ClientForm form={form} setForm={setForm} users={user?.role === 'admin' ? users : []} />
           {formError && (
             <div style={{ marginTop: 12, color: 'var(--danger)', fontSize: 12 }}>{formError}</div>
           )}
@@ -268,7 +275,7 @@ export default function ClientsPage() {
   )
 }
 
-export function ClientForm({ form, setForm }) {
+export function ClientForm({ form, setForm, users = [] }) {
   const set = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
   const toggleService = (code) => {
     setForm((prev) => ({
@@ -281,6 +288,16 @@ export function ClientForm({ form, setForm }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {users.length > 0 && (
+        <Field label="Ответственный">
+          <select value={form.owner_id || ''} onChange={set('owner_id')} style={inputStyle}>
+            <option value="">Я</option>
+            {users.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Название *">
         <input value={form.name} onChange={set('name')} placeholder="ООО Ромашка" style={inputStyle} />
       </Field>

@@ -35,6 +35,7 @@ export default function ClientCard() {
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
+  const [users, setUsers] = useState([])
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -49,6 +50,10 @@ export default function ClientCard() {
         if (!cResp.ok) { navigate('/clients'); return }
         setClient(await cResp.json())
         setReports(rResp.ok ? await rResp.json() : [])
+        if (user?.role === 'admin') {
+          const usersResp = await fetch('/api/auth/users', { headers: authHeaders })
+          if (usersResp.ok) setUsers(await usersResp.json())
+        }
       } finally {
         setLoading(false)
       }
@@ -67,6 +72,7 @@ export default function ClientCard() {
       amount: client.amount ?? '',
       services: client.services || [],
       notes: client.notes || '',
+      owner_id: client.owner_id || '',
     })
     setFormError('')
     setShowEdit(true)
@@ -78,6 +84,8 @@ export default function ClientCard() {
     setFormError('')
     try {
       const body = { ...form, amount: form.amount === '' ? null : parseFloat(form.amount) }
+      if (body.owner_id) body.owner_id = Number(body.owner_id)
+      else delete body.owner_id
       const resp = await fetch(`/api/clients/${id}`, {
         method: 'PATCH',
         headers: authHeaders,
@@ -275,7 +283,7 @@ export default function ClientCard() {
       {/* Модальное окно редактирования */}
       {showEdit && (
         <Modal title="Редактировать клиента" onClose={() => setShowEdit(false)}>
-          <ClientForm form={form} setForm={setForm} />
+          <ClientForm form={form} setForm={setForm} users={user?.role === 'admin' ? users : []} />
           {formError && <div style={{ marginTop: 12, color: 'var(--danger)', fontSize: 12 }}>{formError}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
             <button onClick={() => setShowEdit(false)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', fontSize: 13, cursor: 'pointer' }}>
