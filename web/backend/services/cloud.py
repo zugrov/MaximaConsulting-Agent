@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import io
+import ipaddress
 import os
 import re
+import socket
 import urllib.parse
 import zipfile
 from pathlib import PurePosixPath
@@ -29,6 +32,38 @@ _GDRIVE_EXPORT_MIME = {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ),
 }
+
+
+async def assert_public_url(url: str) -> None:
+    """Запрещает запросы к внутренним адресам (защита от SSRF).
+
+    Проверяется и первичный URL, и каждый редирект: адрес резолвится, и все
+    полученные IP должны быть публичными. Остаточный риск — DNS rebinding между
+    проверкой и подключением.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("Допустимы только ссылки http/https")
+
+    loop = asyncio.get_running_loop()
+    try:
+        infos = await loop.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        raise ValueError(f"Не удалось определить адрес хоста {parsed.hostname}")
+
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if not ip.is_global:
+            raise ValueError("Ссылки на внутренние адреса не поддерживаются")
+
+
+async def _check_request(request: httpx.Request) -> None:
+    await assert_public_url(str(request.url))
+
+
+def _client(**kwargs) -> httpx.AsyncClient:
+    """HTTP-клиент, проверяющий каждый запрос (включая редиректы) на публичный адрес."""
+    return httpx.AsyncClient(event_hooks={"request": [_check_request]}, **kwargs)
 
 
 def _google_drive_api_key() -> str:
@@ -149,7 +184,7 @@ async def resolve_url(url: str) -> Dict:
 
     # --- Яндекс.Диск ---
     if provider == "yandex":
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+        async with _client(follow_redirects=True, timeout=15) as client:
             resp = await client.get(
                 _YADISK_RESOURCES,
                 params={"public_key": url, "limit": 100},
@@ -214,7 +249,7 @@ async def resolve_url(url: str) -> Dict:
 
 async def _yadisk_file_download_url(public_key: str) -> str:
     """Получить прямую download-ссылку через API Яндекс.Диска."""
-    async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+    async with _client(follow_redirects=True, timeout=15) as client:
         resp = await client.get(
             _YADISK_DOWNLOAD,
             params={"public_key": public_key},
@@ -241,7 +276,7 @@ async def _gdrive_list_folder(folder_url: str) -> List[Dict]:
     files: List[Dict] = []
     page_token: Optional[str] = None
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with _client(timeout=30) as client:
         while True:
             params = {
                 "q": f"'{folder_id}' in parents and trashed=false",
@@ -277,7 +312,7 @@ async def _gdrive_file_name(file_id: str) -> Optional[str]:
     api_key = _google_drive_api_key()
     if not api_key:
         return None
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with _client(timeout=15) as client:
         resp = await client.get(
             f"{_GDRIVE_API}/{file_id}",
             params={"fields": "name", "key": api_key},
@@ -294,7 +329,7 @@ async def _dropbox_list_folder(folder_url: str) -> List[Dict]:
     Файлы возвращаются с base64-содержимым или как временные blob-описания.
     """
     dl_url = to_download_url(folder_url, "dropbox")
-    async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+    async with _client(follow_redirects=True, timeout=60) as client:
         resp = await client.get(dl_url, headers=HEADERS)
     if resp.status_code != 200:
         raise ValueError(f"Dropbox вернул {resp.status_code}")
@@ -331,7 +366,7 @@ async def download_file(url: str, provider: str, extra: Optional[Dict] = None) -
 
     if provider == "yandex" and extra.get("path"):
         # Файл внутри папки Яндекс.Диска — получаем download_url через API
-        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
+        async with _client(follow_redirects=True, timeout=15) as client:
             resp = await client.get(
                 _YADISK_DOWNLOAD,
                 params={
@@ -348,7 +383,7 @@ async def download_file(url: str, provider: str, extra: Optional[Dict] = None) -
     if provider == "dropbox" and extra.get("_zip_path"):
         # Файл из zip-архива Dropbox
         folder_dl_url = to_download_url(extra["_folder_url"], "dropbox")
-        async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+        async with _client(follow_redirects=True, timeout=60) as client:
             resp = await client.get(folder_dl_url, headers=HEADERS)
         with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
             content = zf.read(extra["_zip_path"])
@@ -366,7 +401,7 @@ async def download_file(url: str, provider: str, extra: Optional[Dict] = None) -
 
 
 async def _http_download(url: str) -> Tuple[bytes, str]:
-    async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+    async with _client(follow_redirects=True, timeout=60) as client:
         resp = await client.get(url, headers=HEADERS)
     if resp.status_code != 200:
         raise ValueError(f"HTTP {resp.status_code} при скачивании {url[:80]}")

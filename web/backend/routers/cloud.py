@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import zipfile
 from typing import Annotated, List, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -9,6 +11,15 @@ from routers.auth import get_current_user
 from services.cloud import detect_provider, download_file, resolve_url
 
 router = APIRouter()
+
+ALLOWED_ROLES = {"admin", "analyst"}
+NETWORK_ERRORS = (httpx.HTTPError, zipfile.BadZipFile, KeyError)
+
+
+def require_analyst(current_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    if current_user["role"] not in ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+    return current_user
 
 
 class ResolveRequest(BaseModel):
@@ -62,7 +73,7 @@ class DownloadResponse(BaseModel):
 @router.post("/resolve", response_model=ResolveResponse)
 async def resolve(
     body: ResolveRequest,
-    _: Annotated[dict, Depends(get_current_user)],
+    _: Annotated[dict, Depends(require_analyst)],
 ) -> ResolveResponse:
     url = body.url.strip()
     if not url:
@@ -71,6 +82,8 @@ async def resolve(
         result = await resolve_url(url)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except NETWORK_ERRORS:
+        raise HTTPException(status_code=400, detail="Не удалось получить данные по ссылке")
 
     if result["type"] == "folder":
         items = [
@@ -110,7 +123,7 @@ async def resolve(
 @router.post("/download", response_model=DownloadResponse)
 async def download(
     body: DownloadRequest,
-    _: Annotated[dict, Depends(get_current_user)],
+    _: Annotated[dict, Depends(require_analyst)],
 ) -> DownloadResponse:
     import base64
 
@@ -131,6 +144,8 @@ async def download(
             content, name = await download_file(ref.url, ref.provider, extra)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"{ref.name}: {e}")
+        except NETWORK_ERRORS:
+            raise HTTPException(status_code=400, detail=f"{ref.name}: не удалось скачать файл")
 
         results.append(
             DownloadedFile(
