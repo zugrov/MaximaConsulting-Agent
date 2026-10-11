@@ -30,6 +30,18 @@ class PasswordsTest(unittest.TestCase):
             json={"current_password": current, "new_password": new},
         )
 
+    def test_old_token_is_rejected_after_password_change(self) -> None:
+        headers = auth_headers(self.client, "analyst")
+        changed = self.client.post(
+            "/api/auth/me/password",
+            headers=headers,
+            json={"current_password": TEST_PASSWORD, "new_password": NEW_PASSWORD},
+        )
+        self.assertEqual(changed.status_code, 204, changed.text)
+        again = self.client.get("/api/auth/me", headers=headers)
+        self.assertEqual(again.status_code, 401)
+        self.assertEqual(self.login("analyst", NEW_PASSWORD).status_code, 200)
+
     def test_user_changes_own_password(self) -> None:
         response = self.change_own("analyst", TEST_PASSWORD, NEW_PASSWORD)
         self.assertEqual(response.status_code, 204, response.text)

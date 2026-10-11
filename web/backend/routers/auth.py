@@ -88,6 +88,11 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     user = get_user_by_email(payload.get("email", ""))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден")
+    if payload.get("pwd", 0) != user.get("password_version", 0):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Сессия завершена, войдите снова",
+        )
     return user
 
 
@@ -124,7 +129,11 @@ def login(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depe
             detail="Неверный email или пароль",
         )
     login_limiter.reset_account(ip, form_data.username)
-    token = create_access_token({"email": user["email"], "role": user["role"]})
+    token = create_access_token({
+        "email": user["email"],
+        "role": user["role"],
+        "pwd": user.get("password_version", 0),
+    })
     return Token(access_token=token, token_type="bearer")
 
 

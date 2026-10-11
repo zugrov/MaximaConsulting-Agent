@@ -126,6 +126,8 @@ def set_user_password(user_id: int, new_password: str) -> bool:
         for u in users:
             if u["id"] == user_id:
                 u["password_hash"] = password_hash
+                # старые токены хранят прежний номер и перестают подходить
+                u["password_version"] = u.get("password_version", 0) + 1
                 _save_users(users)
                 return True
     return False
