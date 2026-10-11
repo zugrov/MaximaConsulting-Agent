@@ -36,6 +36,7 @@ export default function AnalysisPage() {
   const [streaming, setStreaming] = useState(false)
   const [result, setResult] = useState('')
   const [error, setError] = useState('')
+  const [isTruncated, setIsTruncated] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [uploadTab, setUploadTab] = useState('local') // 'local' | 'cloud'
   const fileInputRef = useRef(null)
@@ -99,6 +100,7 @@ export default function AnalysisPage() {
     setStreaming(true)
     setResult('')
     setError('')
+    setIsTruncated(false)
     setStep(3)
 
     const form = new FormData()
@@ -121,6 +123,8 @@ export default function AnalysisPage() {
         const err = await resp.json().catch(() => ({}))
         throw new Error(err.detail || `HTTP ${resp.status}`)
       }
+
+      setIsTruncated(resp.headers.get('X-Truncated') === '1')
 
       const reader = resp.body.getReader()
       const decoder = new TextDecoder()
@@ -154,6 +158,7 @@ export default function AnalysisPage() {
     setFiles([])
     setResult('')
     setError('')
+    setIsTruncated(false)
     setStreaming(false)
     setStep(1)
     setClientName('')
@@ -259,7 +264,7 @@ export default function AnalysisPage() {
               </div>
               {files.length === 0 && (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-                  Максимум 100 000 символов после парсинга · Можно загрузить несколько
+                  В анализ уходит не более 50 000 символов суммарно, остальное отбрасывается · Можно загрузить несколько
                 </div>
               )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
@@ -368,6 +373,13 @@ export default function AnalysisPage() {
       )}
 
       {/* Step 3 — Result */}
+      {step === 3 && isTruncated && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', color: '#92400e', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
+          ⚠️ Данные были обрезаны (лимит 50 000 символов на анализ). Часть строк не учтена,
+          итоговые показатели могут быть неполными — разделите файлы и повторите анализ.
+        </div>
+      )}
+
       {step === 3 && (result || streaming) && (
         <ResultViewer
           content={result}

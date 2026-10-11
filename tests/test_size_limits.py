@@ -83,5 +83,32 @@ class UploadLimitTest(unittest.TestCase):
         self.assertIn("big.md", response.json()["detail"])
 
 
+class TruncationHeaderTest(unittest.TestCase):
+    def analyze(self, content: bytes) -> httpx.Response:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        client, _ = build_test_client(Path(tmp.name))
+
+        async def fake_stream(**kwargs):
+            yield "data: [DONE]\n\n"
+
+        with mock.patch("routers.analyze.stream_analysis", fake_stream):
+            return client.post(
+                "/api/analyze",
+                headers=auth_headers(client, "analyst"),
+                data={"service_code": "1"},
+                files={"files": ("data.md", content)},
+            )
+
+    def test_header_is_set_when_data_is_truncated(self) -> None:
+        response = self.analyze(b"x" * 60_000)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["X-Truncated"], "1")
+
+    def test_header_is_off_for_small_data(self) -> None:
+        response = self.analyze(b"x" * 1_000)
+        self.assertEqual(response.headers["X-Truncated"], "0")
+
+
 if __name__ == "__main__":
     unittest.main()

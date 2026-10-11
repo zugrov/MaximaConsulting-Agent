@@ -90,5 +90,6 @@ async def analyze(
             "X-Accel-Buffering": "no",
             "X-Client-Name": quote(client_name, safe=""),
             "X-Service-Name": quote(service_name, safe=""),
+            "X-Truncated": "1" if any_truncated else "0",
         },
     )
