@@ -63,8 +63,7 @@ export default function ResultViewer({ content, streaming, serviceName, clientNa
   return (
     <div style={{ background: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      <div className="split-head" style={{
         padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)',
       }}>
         <div>
@@ -83,7 +82,7 @@ export default function ResultViewer({ content, streaming, serviceName, clientNa
             ) : 'Готово'}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="split-actions">
           {!streaming && content && (
             <>
               <Btn onClick={handleDownloadMd}>⬇ MD</Btn>

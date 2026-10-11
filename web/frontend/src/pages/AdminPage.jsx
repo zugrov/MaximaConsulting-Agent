@@ -73,7 +73,7 @@ export default function AdminPage() {
       {showForm && (
         <div style={{ background: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: 10, padding: 24, marginBottom: 20 }}>
           <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Новый пользователь</div>
-          <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <form onSubmit={handleCreate} className="cols-2">
             <Field label="Имя" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Анна Кириллова" required />
             <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} placeholder="a.kirillova@company.ru" required />
             <Field label="Пароль" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} placeholder="Минимум 8 символов" required />
@@ -114,9 +114,8 @@ export default function AdminPage() {
           {users.map((u, i) => {
             const rc = ROLE_COLORS[u.role] || {}
             return (
-              <div key={u.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '12px 16px', borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
+              <div key={u.id} className="user-row" style={{
+                borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)',
@@ -125,7 +124,7 @@ export default function AdminPage() {
                 }}>
                   {u.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="user-meta">
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{u.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{u.email}</div>
                 </div>

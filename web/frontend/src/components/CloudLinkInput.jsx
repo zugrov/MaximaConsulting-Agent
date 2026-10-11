@@ -160,14 +160,14 @@ export default function CloudLinkInput({ onFilesReady }) {
   return (
     <div>
       {/* Поле ввода */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div className="link-bar">
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleResolve()}
           placeholder="Вставьте ссылку Dropbox, Google Drive, Яндекс.Диск или прямую URL"
           style={{
-            flex: 1, padding: '9px 12px',
+            padding: '9px 12px',
             border: '1px solid var(--border)', borderRadius: 6,
             outline: 'none', fontSize: 13,
           }}

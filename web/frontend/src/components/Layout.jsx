@@ -14,6 +14,7 @@ export default function Layout() {
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   const [isPasswordOpen, setIsPasswordOpen] = useState(false)
+  const [isNavOpen, setIsNavOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -24,24 +25,24 @@ export default function Layout() {
     ? user.name.split(' ').map((w) => w[0]).slice(0, 2).join('')
     : '??'
 
+  const closeNav = () => setIsNavOpen(false)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* Header */}
-      <header style={{
-        height: 'var(--header-h)',
-        background: 'var(--dark)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 24px',
-        gap: 16,
-        position: 'fixed',
-        top: 0, left: 0, right: 0,
-        zIndex: 100,
-      }}>
+      <header className="app-header">
+        <button
+          type="button"
+          className="nav-toggle"
+          aria-label="Меню"
+          aria-expanded={isNavOpen}
+          onClick={() => setIsNavOpen((open) => !open)}
+        >
+          {isNavOpen ? '✕' : '☰'}
+        </button>
         <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 16, color: '#fff' }}>
           maxima <span style={{ color: 'var(--teal)' }}>consulting</span>
         </span>
-        <span style={{ fontSize: 11, color: '#666', background: '#2a2a29', padding: '2px 8px', borderRadius: 4 }}>
+        <span className="header-badge" style={{ fontSize: 11, color: '#666', background: '#2a2a29', padding: '2px 8px', borderRadius: 4 }}>
           AI Agent · internal
         </span>
         <div style={{ flex: 1 }} />
@@ -51,7 +52,7 @@ export default function Layout() {
               background: 'rgba(13,148,136,.2)', color: 'var(--teal)',
               borderRadius: 4, padding: '2px 6px', fontSize: 11, fontWeight: 600,
             }}>{user.role}</span>
-            <span>{user.name}</span>
+            <span className="header-user-name">{user.name}</span>
             <div style={{
               width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -61,26 +62,17 @@ export default function Layout() {
         )}
       </header>
 
-      <div style={{ display: 'flex', marginTop: 'var(--header-h)', minHeight: 'calc(100vh - var(--header-h))' }}>
-        {/* Sidebar */}
-        <aside style={{
-          width: 'var(--sidebar-w)',
-          background: 'var(--bg-white)',
-          borderRight: '1px solid var(--border)',
-          padding: '20px 0',
-          position: 'fixed',
-          top: 'var(--header-h)',
-          left: 0,
-          height: 'calc(100vh - var(--header-h))',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
+      <div className="app-body">
+        <div
+          className={isNavOpen ? 'nav-backdrop is-open' : 'nav-backdrop'}
+          onClick={closeNav}
+        />
+        <aside className={isNavOpen ? 'app-sidebar is-open' : 'app-sidebar'}>
           <div style={{ padding: '0 12px 4px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
             Анализ
           </div>
           {navItems.map(({ to, icon, label }) => (
-            <NavLink key={to} to={to} style={({ isActive }) => ({
+            <NavLink key={to} to={to} onClick={closeNav} style={({ isActive }) => ({
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 16px', fontSize: 13, fontWeight: 500,
               color: isActive ? 'var(--primary)' : 'var(--text-muted)',
@@ -98,7 +90,7 @@ export default function Layout() {
               <div style={{ padding: '16px 12px 4px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-muted)' }}>
                 Управление
               </div>
-              <NavLink to="/admin" style={({ isActive }) => ({
+              <NavLink to="/admin" onClick={closeNav} style={({ isActive }) => ({
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 16px', fontSize: 13, fontWeight: 500,
                 color: isActive ? 'var(--primary)' : 'var(--text-muted)',
@@ -139,7 +131,7 @@ export default function Layout() {
         </aside>
 
         {/* Main */}
-        <main style={{ marginLeft: 'var(--sidebar-w)', flex: 1, padding: '28px 32px', maxWidth: 960 }}>
+        <main className="app-main">
           <Outlet />
         </main>
       </div>

@@ -116,7 +116,7 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="page-head">
         <div>
           <h1 style={{ fontFamily: 'var(--font-head)', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
             Клиенты
@@ -140,12 +140,12 @@ export default function ClientsPage() {
       </div>
 
       {/* Фильтры */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div className="toolbar" style={{ marginBottom: 20 }}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Поиск по названию…"
-          style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, outline: 'none', minWidth: 200 }}
+          style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, outline: 'none', flex: '1 1 180px', minWidth: 0 }}
         />
         {['all', 'lead', 'project', 'closed'].map((s) => (
           <button
@@ -171,7 +171,7 @@ export default function ClientsPage() {
           {search || filterStatus !== 'all' ? 'Ничего не найдено' : 'Клиентов пока нет'}
         </div>
       ) : (
-        <div style={{ background: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+        <div className="table-scroll" style={{ background: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: 10 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
@@ -284,7 +284,7 @@ export function ClientForm({ form, setForm }) {
       <Field label="Название *">
         <input value={form.name} onChange={set('name')} placeholder="ООО Ромашка" style={inputStyle} />
       </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="cols-2">
         <Field label="Контакт">
           <input value={form.contact} onChange={set('contact')} placeholder="+7 999 000 00 00" style={inputStyle} />
         </Field>
@@ -296,7 +296,7 @@ export function ClientForm({ form, setForm }) {
           </select>
         </Field>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="cols-2">
         <Field label="Сумма (₽)">
           <input value={form.amount} onChange={set('amount')} placeholder="150000" type="number" style={inputStyle} />
         </Field>

@@ -134,19 +134,19 @@ export default function ClientCard() {
       </div>
 
       {/* Заголовок */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
+      <div className="card-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
             🏢
           </div>
           <div>
-            <h1 style={{ fontFamily: 'var(--font-head)', fontSize: 20, fontWeight: 700, margin: 0 }}>{client.name}</h1>
+            <h1 style={{ fontFamily: 'var(--font-head)', fontSize: 20, fontWeight: 700, margin: 0, wordBreak: 'break-word' }}>{client.name}</h1>
             <span style={{ background: st.bg, color: st.color, borderRadius: 4, padding: '3px 8px', fontSize: 11, fontWeight: 600 }}>
               {st.label}
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div className="card-actions">
           {canEdit && (
             <button
               onClick={openEdit}
@@ -201,7 +201,7 @@ export default function ClientCard() {
 
       {/* Вкладка: информация */}
       {tab === 'info' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="cols-2" style={{ gap: 16 }}>
           <InfoCard title="Основное">
             <InfoRow label="Контакт" value={client.contact || '—'} />
             <InfoRow label="Статус" value={st.label} />

@@ -208,8 +208,8 @@ export default function AnalysisPage() {
                 }}
               >
                 <span style={{ fontSize: 16 }}>📄</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{f.name}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     {(f.size / 1024).toFixed(0)} KB
                   </div>
@@ -297,7 +297,7 @@ export default function AnalysisPage() {
       {/* Step 2 — Service */}
       {step >= 2 && (
         <Card title="⚙️ Услуга">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div className="cols-4">
             {SERVICES.map((svc) => (
               <div
                 key={svc.code}
@@ -315,7 +315,7 @@ export default function AnalysisPage() {
             ))}
           </div>
 
-          <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="cols-2" style={{ marginTop: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 5 }}>
                 Название клиента
@@ -386,7 +386,7 @@ export default function AnalysisPage() {
 function Stepper({ step }) {
   const steps = ['Документы', 'Услуга', 'Результат']
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 32 }}>
+    <div className="stepper">
       {steps.map((label, i) => {
         const n = i + 1
         const done = step > n
@@ -406,7 +406,7 @@ function Stepper({ step }) {
               {label}
             </div>
             {i < steps.length - 1 && (
-              <div style={{ width: 60, height: 1, background: done ? 'var(--success)' : 'var(--border)', margin: '0 12px' }} />
+              <div className="stepper-line" style={{ background: done ? 'var(--success)' : 'var(--border)' }} />
             )}
           </div>
         )

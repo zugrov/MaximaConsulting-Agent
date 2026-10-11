@@ -24,22 +24,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <div style={{
-        background: 'var(--bg-white)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '40px 36px',
-        width: '100%',
-        maxWidth: 380,
-        boxShadow: '0 4px 24px rgba(0,0,0,.06)',
-      }}>
+    <div className="login-page">
+      <div className="login-card">
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{

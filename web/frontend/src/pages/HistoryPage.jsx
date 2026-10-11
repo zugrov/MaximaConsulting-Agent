@@ -129,9 +129,8 @@ export default function HistoryPage() {
           ← Назад к списку
         </button>
         <div style={{ background: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{
-            padding: '14px 20px', borderBottom: '1px solid var(--border)',
-            background: 'var(--bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          <div className="split-head" style={{
+            padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)',
           }}>
             <div>
               <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13 }}>
@@ -143,7 +142,7 @@ export default function HistoryPage() {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="split-actions">
               <Btn onClick={handleDownloadMd} disabled={loadingReport}>⬇ MD</Btn>
               <Btn onClick={handleDownloadPDF} disabled={loadingReport}>⬇ PDF</Btn>
             </div>
@@ -173,7 +172,7 @@ export default function HistoryPage() {
 
       {/* Фильтры */}
       {!loading && reports.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+        <div className="toolbar" style={{ marginBottom: 16 }}>
           <select
             value={clientFilter}
             onChange={(e) => setClientFilter(e.target.value)}
@@ -232,9 +231,8 @@ export default function HistoryPage() {
             return (
               <div
                 key={r.filename}
+                className="report-row"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  padding: '12px 16px',
                   borderBottom: i < filteredReports.length - 1 ? '1px solid var(--border)' : 'none',
                   cursor: 'pointer', transition: 'background .1s',
                 }}
@@ -243,7 +241,7 @@ export default function HistoryPage() {
                 onClick={() => openReport(r.filename)}
               >
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--teal)', flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{r.client} — {r.service}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                     {r.modified} · {r.size_kb} KB
