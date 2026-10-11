@@ -24,6 +24,16 @@ const EMPTY_FORM = {
   status: 'lead', amount: '', services: [], notes: '',
 }
 
+// Склонение: 1 клиент, 2 клиента, 5 клиентов, 11 клиентов, 21 клиент
+function clientsWord(count) {
+  const lastTwo = count % 100
+  const last = count % 10
+  if (lastTwo >= 11 && lastTwo <= 14) return 'клиентов'
+  if (last === 1) return 'клиент'
+  if (last >= 2 && last <= 4) return 'клиента'
+  return 'клиентов'
+}
+
 export default function ClientsPage() {
   const token = useAuthStore((s) => s.token)
   const user = useAuthStore((s) => s.user)
@@ -112,7 +122,7 @@ export default function ClientsPage() {
             Клиенты
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-            {clients.length} клиент{clients.length === 1 ? '' : clients.length < 5 ? 'а' : 'ов'}
+            {clients.length} {clientsWord(clients.length)}
           </p>
         </div>
         {canEdit && (
