@@ -113,6 +113,18 @@ def _yield_content_chunks(content: str) -> list[str]:
     return events
 
 
+def _extract_error_code(response: httpx.Response) -> str:
+    """Код ошибки llm-router; если тело не JSON или detail — строка, берём HTTP-статус."""
+    fallback = f"HTTP_{response.status_code}"
+    try:
+        detail = response.json().get("detail")
+    except (ValueError, AttributeError):
+        return fallback
+    if isinstance(detail, dict):
+        return str(detail.get("error_code") or fallback)
+    return fallback
+
+
 async def stream_analysis(
     raw_content: str,
     source_file: str,
@@ -152,11 +164,7 @@ async def stream_analysis(
         response = llm_task.result()
 
         if response.status_code != 200:
-            try:
-                detail = response.json().get("detail", {})
-                error_code = detail.get("error_code", f"HTTP_{response.status_code}")
-            except ValueError:
-                error_code = f"HTTP_{response.status_code}"
+            error_code = _extract_error_code(response)
             if error_code == "MODEL_UNAVAILABLE":
                 msg = (
                     "llm-router — модели временно недоступны "
@@ -168,8 +176,10 @@ async def stream_analysis(
             yield f"data: [ОШИБКА: {msg}]\n\n"
             return
 
-        data = response.json()
-        content = (data.get("content") or "").strip()
+        try:
+            content = (response.json().get("content") or "").strip()
+        except (ValueError, AttributeError):
+            content = ""
         if not content:
             yield "data: [ОШИБКА: llm-router вернул пустой ответ]\n\n"
             return
