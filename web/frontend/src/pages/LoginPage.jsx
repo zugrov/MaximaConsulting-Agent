@@ -65,7 +65,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
-              placeholder="admin@maximaconsult.ru"
+              placeholder="name@company.ru"
               style={{
                 width: '100%', padding: '9px 12px',
                 border: '1px solid var(--border)', borderRadius: 6,
@@ -122,10 +122,6 @@ export default function LoginPage() {
             {loading ? 'Вход…' : 'Войти'}
           </button>
         </form>
-
-        <div style={{ marginTop: 20, padding: '12px', background: 'var(--bg)', borderRadius: 6, fontSize: 11, color: 'var(--text-muted)' }}>
-          <strong>Тест:</strong> admin@maximaconsult.ru / admin123
-        </div>
       </div>
     </div>
   )
