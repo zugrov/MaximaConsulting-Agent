@@ -1,10 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 
 const API = '/api/auth'
 
+// Возвращает isReady: пока токен из localStorage проверяется через /me, маршруты
+// не должны считать пользователя неавторизованным.
 export function useBootAuth() {
   const { token, setAuth, logout } = useAuthStore()
+  const [isReady, setIsReady] = useState(!token)
 
   useEffect(() => {
     if (!token) return
@@ -12,7 +15,10 @@ export function useBootAuth() {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((user) => setAuth(user, token))
       .catch(() => logout())
+      .finally(() => setIsReady(true))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return isReady
 }
 
 export async function login(email, password) {

@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { useBootAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import AnalysisPage from './pages/AnalysisPage'
@@ -16,6 +17,11 @@ function ProtectedRoute({ children, requiredRole }) {
 }
 
 export default function App() {
+  const isReady = useBootAuth()
+  if (!isReady) {
+    return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Загрузка…</div>
+  }
+
   return (
     <BrowserRouter>
       <Routes>

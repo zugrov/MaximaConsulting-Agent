@@ -1,6 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { useBootAuth } from '../hooks/useAuth'
 
 const navItems = [
   { to: '/analysis', icon: '📄', label: 'Новый анализ' },
@@ -9,7 +8,6 @@ const navItems = [
 ]
 
 export default function Layout() {
-  useBootAuth()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
